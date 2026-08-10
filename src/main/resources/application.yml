@@ -1,3 +1,18 @@
 spring:
   application:
     name: school-pickup-system
+  datasource:
+    url: jdbc:postgresql://localhost:5432/school_queue_db
+    username: queue_user
+    password: queue_password
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest

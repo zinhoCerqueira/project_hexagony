@@ -241,8 +241,23 @@ services:
       timeout: 5s
       retries: 5
 
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: school_queue_pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@schoolqueue.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"   # Web UI
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+
 volumes:
   pgdata:
+  pgadmin-data:
 ```
 
 ### Script Inicial SQL (`docker/postgres/init.sql`)
