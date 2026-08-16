@@ -3,7 +3,7 @@
 > **Arquitetura Target:** Arquitetura Hexagonal (Ports & Adapters)  
 > **Linguagem & Ecossistema:** Java 21, Spring Boot 3.x, Maven  
 > **Infraestrutura Local:** Docker & Docker Compose  
-> **Estratégia de Validação:** Testes e Execução REST via Bruno Client  
+> **Estratégia de Validação:** TDD (JUnit 5 + AssertJ + Mockito), testes de integração (Testcontainers), cobertura (JaCoCo) e E2E REST via Bruno Client  
 
 ---
 
@@ -148,8 +148,35 @@ school-pickup-system/
 │   │
 │   └── test/
 │       └── java/
-│           └── com/schoolqueue/domain/                 <-- Testes unitários do Core puro
-│               └── PickupQueueItemTest.java
+│           └── com/schoolqueue/
+│               ├── domain/                              <-- Testes unitários do Core puro
+│               │   ├── PickupQueueItemTest.java
+│               │   ├── SchoolTest.java
+│               │   ├── ClassroomTest.java
+│               │   ├── ParentTest.java
+│               │   ├── StudentTest.java
+│               │   └── LocationSharingSessionTest.java
+│               ├── application/
+│               │   └── usecase/                         <-- Testes dos services (Mockito)
+│               │       ├── AnnounceArrivalServiceTest.java
+│               │       ├── UpdateQueueStatusServiceTest.java
+│               │       ├── FetchActiveQueueServiceTest.java
+│               │       ├── StartLocationSharingServiceTest.java
+│               │       ├── UpdateParentLocationServiceTest.java
+│               │       └── FetchSharedLocationServiceTest.java
+│               ├── infrastructure/
+│               │   ├── adapters/in/web/                 <-- Testes dos controllers (MockMvc)
+│               │   │   ├── PickupQueueControllerTest.java
+│               │   │   ├── LocationSharingControllerTest.java
+│               │   │   └── GlobalExceptionHandlerTest.java
+│               │   └── adapters/out/persistence/        <-- Testes de repositórios/adapter
+│               │       ├── SpringDataQueueRepositoryTest.java
+│               │       ├── QueuePersistenceAdapterTest.java
+│               │       ├── SpringDataLocationSharingRepositoryTest.java
+│               │       └── LocationSharingPersistenceAdapterTest.java
+│               └── integration/                         <-- E2E (Testcontainers, sufixo *IT)
+│                   ├── PickupQueueFlowIT.java
+│                   └── LocationSharingFlowIT.java
 └── pom.xml
 ```
 
@@ -562,6 +589,86 @@ assert {
 
 ---
 
+## 🧪 7.1. Estratégia de Testes: TDD e Pipeline de Qualidade
+
+Além da validação E2E via Bruno, o projeto adota **Test-Driven Development (TDD)** em todas as camadas. A regra é: **primeiro o teste que falha (RED), depois a implementação mínima (GREEN) e por fim o refactor (REFACTOR)**. No dashboard, cada card de desenvolvimento que envolve código possui um card de teste correspondente logo antes, na ordem TDD.
+
+### Pirâmide de Testes
+
+```text
+        ╱╲        E2E REST (Bruno Client) — fluxo ponta a ponta manual
+       ╱══╲       Integração (@SpringBootTest + Testcontainers) — sufixo *IT
+      ╱════╲      Slice: @WebMvcTest (controllers) + @DataJpaTest (repositórios)
+     ╱══════╲     Unit Services (JUnit 5 + Mockito nas ports)
+    ╱════════╲    Unit Domain Core (JUnit 5 + AssertJ, zero Spring)
+```
+
+### Convenções de Teste
+
+- Pacote de teste espelha o de produção (`src/test/java/com/schoolqueue/...`).
+- JUnit 5 + **AssertJ** (assertions fluent) + **Mockito** (mocks de ports).
+- `@DisplayName` descritivo em inglês e nomes de método no padrão Given/When/Then (ex.: `shouldTransitionToArrivedWhenEnRoute`).
+- Sufixo `*Test` = teste unitário (Surefire, **sem Docker**); sufixo `*IT` = teste de integração (Failsafe + Testcontainers).
+
+### Infraestrutura de Testes
+
+- **Testcontainers Postgres**: repositórios e testes de integração rodam contra um PostgreSQL real, fiel ao schema (`timestamptz`, `UUID`, Flyway). Exige Docker durante o `mvn verify`.
+- **JaCoCo**: relatório de cobertura no ciclo `verify` com gate de **linha >= 80%** e **ramo >= 70%** nos pacotes `domain` e `application`.
+- **Failsafe**: executa os testes de integração `*IT` no `verify`.
+
+### Comandos do Pipeline
+
+| Comando | Escopo |
+|---|---|
+| `mvn test` | Somente testes unitários (rápido, sem Docker) |
+| `mvn verify` | Unitários + integração (`*IT`) + JaCoCo + Spotless |
+| `mvn spring-boot:run` | Sobe a aplicação para validar o E2E no Bruno |
+
+### Exemplo: Teste de Domínio (TDD)
+
+```java
+// src/test/java/com/schoolqueue/domain/PickupQueueItemTest.java
+class PickupQueueItemTest {
+
+    @Test
+    @DisplayName("markAsArrived transitions EN_ROUTE to ARRIVED")
+    void shouldTransitionToArrivedWhenEnRoute() {
+        var item = new PickupQueueItem(null, schoolId, studentId, parentId, 10);
+
+        item.markAsArrived();
+
+        assertThat(item.getStatus()).isEqualTo(QueueStatus.ARRIVED);
+    }
+}
+```
+
+### Exemplo: Teste de Service com Mockito (TDD)
+
+```java
+// src/test/java/com/schoolqueue/application/usecase/AnnounceArrivalServiceTest.java
+class AnnounceArrivalServiceTest {
+
+    @Mock QueueRepositoryPort repositoryPort;
+    @Mock QueueNotificationPort notificationPort;
+
+    @Test
+    @DisplayName("execute saves and notifies a new EN_ROUTE item")
+    void shouldCreateAndNotify() {
+        var command = new AnnounceArrivalUseCase.AnnounceArrivalCommand(
+            UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 10);
+        var service = new AnnounceArrivalService(repositoryPort, notificationPort);
+
+        var result = service.execute(command);
+
+        assertThat(result.getStatus()).isEqualTo(QueueStatus.EN_ROUTE);
+        verify(repositoryPort).save(any(PickupQueueItem.class));
+        verify(notificationPort).notifyStudentArrivalAnnounced(any(PickupQueueItem.class));
+    }
+}
+```
+
+---
+
 ## 📍 8. Feature Complementar: Compartilhamento de GPS por 15 Minutos
 
 > **Importante:** Esta feature deve ser desenvolvida **separadamente**, apenas **após** a conclusão e validação de toda a funcionalidade de "avisar que está indo buscar" (Anunciar Chegada) **sem** a parte de GPS. O objetivo é manter o escopo base da fila de saída funcional e testado antes de evoluir com rastreamento de localização.
@@ -664,26 +771,37 @@ Siga a ordem sequencial abaixo para construir o projeto do zero:
   - [ ] Criar as Entidades Java puras (`School`, `Student`, `Parent`, `PickupQueueItem`).
   - [ ] Criar Enums e Exceções de Domínio.
   - [ ] Escrever Testes Unitários com JUnit 5 para os métodos de transição de estado na entidade `PickupQueueItem`.
+  - [ ] Criar Testes Unitários (JUnit 5 + AssertJ) para as entidades `School`, `Classroom`, `Parent` e `Student` — teste (RED) antes da implementação (TDD).
 - [ ] **Fase 3: Contratos & Casos de Uso**
   - [ ] Criar os pacotes `ports.in` e `ports.out`.
   - [ ] Implementar as interfaces dos Use Cases.
   - [ ] Implementar as classes de Serviço que orquestram a lógica no pacote `application`.
+  - [ ] Escrever Testes Unitários dos services (JUnit 5 + Mockito) antes de implementá-los (TDD): `AnnounceArrivalService`, `UpdateQueueStatusService`, `FetchActiveQueueService`.
 - [ ] **Fase 4: Adaptadores de Banco de Dados**
   - [ ] Criar as entidades JPA (`@Entity`) no pacote `infrastructure.adapters.out.persistence.entity`.
   - [ ] Criar os Mappers para converter entre `Domain Model` <-> `JPA Entity`.
   - [ ] Implementar a classe `QueuePersistenceAdapter` que assina o contrato `QueueRepositoryPort`.
+  - [ ] Escrever testes de persistência (`@DataJpaTest` + Testcontainers Postgres) para repositórios e adapters — teste (RED) antes da implementação (TDD).
 - [ ] **Fase 5: Adaptadores REST e Configurações Spring**
   - [ ] Criar as classes de configuração `@Configuration` para publicar os Beans de Domínio.
   - [ ] Criar o Controller REST `@RestController`.
+  - [ ] Escrever testes dos controllers (`@WebMvcTest`) e do `ExceptionHandler` (409/400) antes de implementá-los (TDD).
   - [ ] Executar a aplicação Spring Boot.
 - [ ] **Fase 6: Testes E2E com Bruno**
   - [ ] Executar as requisições na ordem: Criar Escola -> Cadastrar Aluno -> Anunciar Chegada -> Marcar Chegada -> Finalizar Entregas.
+- [ ] **Fase 6.5: Testes de Integração e Qualidade**
+  - [ ] Criar `PickupQueueFlowIT` (`@SpringBootTest` + Testcontainers postgres/rabbitmq) validando o fluxo E2E automatizado e a publicação no RabbitMQ.
+  - [ ] Rodar `mvn verify` com o gate JaCoCo (linha >= 80%, ramo >= 70%) e validar o relatório de cobertura.
 - [ ] **Fase 7 (separada): Compartilhamento de GPS por 15 Minutos** — *somente após as Fases 1–6 concluídas e validadas, sem a parte de GPS*
   - [ ] Criar o enum `LocationSharingStatus` e a entidade pura `LocationSharingSession` no Core com a regra de auto-expiração de 15 minutos.
   - [ ] Escrever testes unitários (JUnit 5) para a regra de expiração dos 15 minutos na entidade.
   - [ ] Criar as portas `StartLocationSharingUseCase`, `UpdateParentLocationUseCase`, `FetchSharedLocationUseCase` e `LocationSharingRepositoryPort`.
+  - [ ] Escrever testes TDD dos services de GPS (Mockito): `StartLocationSharingService`, `UpdateParentLocationService`, `FetchSharedLocationService`.
   - [ ] Implementar os serviços no pacote `application` e integrar (desacoplado) ao `AnnounceArrivalService`.
+  - [ ] Escrever testes de persistência do GPS (`@DataJpaTest` + Testcontainers) e validar a migração `V2__location_sharing.sql`.
   - [ ] Criar a entidade JPA, mapper e adaptador de persistência para `LocationSharingSession`.
   - [ ] Adicionar a migração SQL da tabela `location_sharing`.
+  - [ ] Escrever testes dos endpoints REST de GPS (`@WebMvcTest`) e mapeamento 400/409.
   - [ ] Expor os endpoints REST de iniciar compartilhamento, atualizar localização e consultar sessões ativas.
+  - [ ] Criar `LocationSharingFlowIT` (`@SpringBootTest` + Testcontainers) para o fluxo E2E do GPS.
   - [ ] Testar via Bruno: Anunciar Chegada -> Atualizar GPS -> Consultar localização na escola -> Validar expiração após 15 min.
