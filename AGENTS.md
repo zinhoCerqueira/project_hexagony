@@ -13,19 +13,18 @@ versionamento e a organização do trabalho devem ser conduzidos a partir de ago
 
 ## Convenção de branches
 
-- `main` — código estável. Recebe apenas integrações revisadas.
-- `develop` — branch de integração. Todo trabalho novo parte daqui.
-- `feature/<nome>` — novas funcionalidades (parte de `develop`, integra de volta em `develop`).
-  Ex.: `feature/announce-arrival`.
-- `fix/<nome>` — correções de bugs.
-- `chore/<nome>` — tarefas de manutenção/setup (devops, tooling, infra).
+Projeto pessoal (desenvolvimento solo): apenas duas branches coexistem por vez.
+
+- `main` — branch base e estável. Todo trabalho novo parte daqui e integra de volta aqui.
+- Branch de trabalho da task — `feature/<nome>`, `fix/<nome>` ou `chore/<nome>`.
+  Ex.: `feature/announce-arrival`, `chore/spotless`.
 
 Fluxo padrão:
 
-1. `git checkout develop && git pull`
+1. `git checkout main && git pull`
 2. `git checkout -b feature/<nome>`
 3. Trabalhe e faça commits atômicos.
-4. Integre de volta em `develop` (merge/pull request).
+4. Integre de volta em `main` (merge/pull request) e delete a branch de trabalho.
 
 ## Convenção de commits
 
@@ -39,5 +38,5 @@ Fluxo padrão:
 
 ## Verificação
 
-- Rodar build/testes Maven quando relevante: `./mvnw test`.
+- Rodar build/testes Maven quando relevante: `mvn test` (sem wrapper `mvnw`; usar o Maven do sistema).
 - Validar o Compose antes de subir: `docker compose --project-directory . -f docker/docker-compose.yml config`.
