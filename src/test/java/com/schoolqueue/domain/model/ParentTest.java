@@ -29,4 +29,16 @@ class ParentTest {
     assertThat(parent.name()).isEqualTo("Maria Souza");
     assertThat(parent.phone()).isEqualTo("11999998888");
   }
+
+  @Test
+  @DisplayName("changes name and phone when updated via setters")
+  void shouldChangeNameAndPhoneWhenUpdatedViaSetters() {
+    Parent parent = new Parent(UUID.randomUUID(), "Maria Souza", "11999998888");
+
+    parent.setName("Maria Souza Silva");
+    parent.setPhone("11888887777");
+
+    assertThat(parent.name()).isEqualTo("Maria Souza Silva");
+    assertThat(parent.phone()).isEqualTo("11888887777");
+  }
 }

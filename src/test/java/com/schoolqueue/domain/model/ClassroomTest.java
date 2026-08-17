@@ -32,4 +32,17 @@ class ClassroomTest {
     assertThat(classroom.schoolId()).isEqualTo(schoolId);
     assertThat(classroom.name()).isEqualTo("Turma A");
   }
+
+  @Test
+  @DisplayName("changes school and name when updated via setters")
+  void shouldChangeSchoolAndNameWhenUpdatedViaSetters() {
+    Classroom classroom = new Classroom(UUID.randomUUID(), UUID.randomUUID(), "Turma A");
+    UUID newSchoolId = UUID.randomUUID();
+
+    classroom.setSchoolId(newSchoolId);
+    classroom.setName("Turma B");
+
+    assertThat(classroom.schoolId()).isEqualTo(newSchoolId);
+    assertThat(classroom.name()).isEqualTo("Turma B");
+  }
 }

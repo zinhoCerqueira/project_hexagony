@@ -4,7 +4,7 @@ import java.util.UUID;
 
 public class School {
   private final UUID id;
-  private final String name;
+  private String name;
 
   public School(UUID id, String name) {
     this.id = id != null ? id : UUID.randomUUID();
@@ -17,5 +17,9 @@ public class School {
 
   public String name() {
     return name;
+  }
+
+  public void setName(String name) {
+    this.name = name;
   }
 }

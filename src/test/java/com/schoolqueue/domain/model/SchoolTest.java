@@ -27,4 +27,14 @@ class SchoolTest {
     assertThat(school.id()).isNotNull();
     assertThat(school.name()).isEqualTo("Escola Municipal");
   }
+
+  @Test
+  @DisplayName("changes name when updated via setter")
+  void shouldChangeNameWhenUpdatedViaSetter() {
+    School school = new School(UUID.randomUUID(), "Escola Municipal");
+
+    school.setName("Escola Estadual");
+
+    assertThat(school.name()).isEqualTo("Escola Estadual");
+  }
 }

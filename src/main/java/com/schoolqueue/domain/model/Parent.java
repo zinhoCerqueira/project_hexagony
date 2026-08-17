@@ -4,8 +4,8 @@ import java.util.UUID;
 
 public class Parent {
   private final UUID id;
-  private final String name;
-  private final String phone;
+  private String name;
+  private String phone;
 
   public Parent(UUID id, String name, String phone) {
     this.id = id != null ? id : UUID.randomUUID();
@@ -23,5 +23,13 @@ public class Parent {
 
   public String phone() {
     return phone;
+  }
+
+  public void setName(String name) {
+    this.name = name;
+  }
+
+  public void setPhone(String phone) {
+    this.phone = phone;
   }
 }

@@ -218,6 +218,42 @@ school-pickup-system/
               +---------------------+
 ```
 
+### Padrão das Entidades Puras (Domain Model)
+
+As entidades cadastrais do Core (`School`, `Classroom`, `Parent`, `Student`) seguem este padrão:
+
+- **Identidade imutável:** apenas o campo `id` — o UUID da própria entidade — é `final`. Ele identifica a entidade e nunca muda.
+- **Atributos mutáveis:** todos os demais campos são `private` sem `final` e possuem setters (`setName`, `setSchoolId`, ...). Isso vale também para **referências a outras entidades** (ex.: `classroom.schoolId` não é `final`, pois uma turma pode ser realocada para outra escola).
+- **`id` opcional no construtor:** quando `null`, o construtor gera `UUID.randomUUID()`.
+- **Sem anotações JPA/Lombok:** Core puro, sem dependência do Spring.
+- **Acessores estilo record** (`id()`, `name()`) combinados com setters JavaBeans (`setName(...)`).
+
+| Campo | Final? | Motivo |
+|---|---|---|
+| `id` (da própria entidade) | ✅ `final` | Identidade, imutável |
+| `schoolId` / `classroomId` (referências) | ❌ mutável | Vínculo pode ser alterado |
+| `name`, `phone`, etc. | ❌ mutável | Dado pode ser atualizado |
+
+```java
+public class Student {
+  private final UUID id;   // único campo final
+  private UUID schoolId;   // referência: mutável
+  private UUID classroomId; // referência: mutável
+  private String name;     // dado: mutável
+
+  public Student(UUID id, UUID schoolId, UUID classroomId, String name) {
+    this.id = id != null ? id : UUID.randomUUID();
+    this.schoolId = schoolId;
+    this.classroomId = classroomId;
+    this.name = name;
+  }
+
+  // acessores de leitura + setters
+}
+```
+
+> Entidades com ciclo de vida próprio (ex.: `PickupQueueItem`, `LocationSharingSession`) fogem deste padrão: além do `id`, mantêm `final` em campos imutáveis de contexto (ex.: `createdAt`) e expõem métodos de negócio que transicionam o estado em vez de setters genéricos.
+
 ### Estados da Fila (QueueStatus):
 - **EN_ROUTE:** Pai notificou que está a caminho.
 - **ARRIVED:** Pai chegou no perímetro escolar.
