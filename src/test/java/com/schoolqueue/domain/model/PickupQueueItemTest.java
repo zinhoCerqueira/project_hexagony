@@ -1,7 +1,9 @@
 package com.schoolqueue.domain.model;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.schoolqueue.domain.exception.InvalidQueueStateException;
 import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -53,5 +55,30 @@ class PickupQueueItemTest {
 
     assertThat(item.createdAt()).isNotNull().isAfterOrEqualTo(before);
     assertThat(item.updatedAt()).isNotNull().isAfterOrEqualTo(before);
+  }
+
+  @Test
+  @DisplayName("transitions to ARRIVED when EN_ROUTE")
+  void shouldTransitionToArrivedWhenEnRoute() {
+    PickupQueueItem item =
+        new PickupQueueItem(null, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 10);
+    Instant before = Instant.now();
+
+    item.markAsArrived();
+
+    assertThat(item.status()).isEqualTo(QueueStatus.ARRIVED);
+    assertThat(item.updatedAt()).isAfterOrEqualTo(before);
+  }
+
+  @Test
+  @DisplayName("throws InvalidQueueStateException when not EN_ROUTE")
+  void shouldThrowInvalidQueueStateExceptionWhenNotEnRoute() {
+    PickupQueueItem item =
+        new PickupQueueItem(null, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 10);
+    item.markAsArrived();
+
+    assertThatThrownBy(() -> item.markAsArrived())
+        .isInstanceOf(InvalidQueueStateException.class)
+        .hasMessage("Apenas responsáveis a caminho podem ser marcados como 'Chegou'");
   }
 }

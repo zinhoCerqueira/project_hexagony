@@ -1,5 +1,6 @@
 package com.schoolqueue.domain.model;
 
+import com.schoolqueue.domain.exception.InvalidQueueStateException;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -55,5 +56,14 @@ public class PickupQueueItem {
 
   public Instant updatedAt() {
     return updatedAt;
+  }
+
+  public void markAsArrived() {
+    if (this.status != QueueStatus.EN_ROUTE) {
+      throw new InvalidQueueStateException(
+          "Apenas responsáveis a caminho podem ser marcados como 'Chegou'");
+    }
+    this.status = QueueStatus.ARRIVED;
+    this.updatedAt = Instant.now();
   }
 }

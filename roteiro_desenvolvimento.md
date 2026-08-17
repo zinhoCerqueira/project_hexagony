@@ -409,7 +409,7 @@ public class PickupQueueItem {
     // Regras de Negócio Puras
     public void markAsArrived() {
         if (this.status != QueueStatus.EN_ROUTE) {
-            throw new InvalidQueueStateException("Apenas alunos a caminho podem ser marcados como 'Chegou'");
+            throw new InvalidQueueStateException("Apenas responsáveis a caminho podem ser marcados como 'Chegou'");
         }
         this.status = QueueStatus.ARRIVED;
         this.updatedAt = Instant.now();
