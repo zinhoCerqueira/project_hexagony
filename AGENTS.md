@@ -36,6 +36,15 @@ Fluxo padrão:
 - Nunca commite secrets: `.env` e arquivos sensíveis estão no `.gitignore`.
 - Revise `git status` e `git diff` antes de commitar; inclua apenas arquivos relacionados.
 
+## Convenções de teste
+
+- O pacote de teste espelha o de produção: `src/test/java/com/schoolqueue/...` corresponde a `src/main/java/com/schoolqueue/...`.
+- Stack: JUnit 5 + **AssertJ** (assertions fluent) + **Mockito** (mocks das `Ports`). No Core de domínio, zero dependência do Spring.
+- `@DisplayName` descritivo em inglês; nomes de método no padrão Given/When/Then,
+  ex.: `shouldTransitionToArrivedWhenEnRoute`.
+- Sufixos: `*Test` = teste unitário (Surefire, roda no `mvn test`, sem Docker);
+  `*IT` = teste de integração (Failsafe + Testcontainers, roda no `mvn verify`).
+
 ## Verificação
 
 - Rodar build/testes Maven quando relevante: `mvn test` (sem wrapper `mvnw`; usar o Maven do sistema).
