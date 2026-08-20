@@ -66,4 +66,12 @@ public class PickupQueueItem {
     this.status = QueueStatus.ARRIVED;
     this.updatedAt = Instant.now();
   }
+
+  public void markAsCompleted() {
+    if (this.status != QueueStatus.ARRIVED && this.status != QueueStatus.CALLED) {
+      throw new InvalidQueueStateException("Aluno não pode ser entregue sem ter chegado");
+    }
+    this.status = QueueStatus.COMPLETED;
+    this.updatedAt = Instant.now();
+  }
 }

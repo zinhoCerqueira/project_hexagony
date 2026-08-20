@@ -81,4 +81,42 @@ class PickupQueueItemTest {
         .isInstanceOf(InvalidQueueStateException.class)
         .hasMessage("Apenas responsáveis a caminho podem ser marcados como 'Chegou'");
   }
+
+  @Test
+  @DisplayName("transitions to COMPLETED when ARRIVED")
+  void shouldTransitionToCompletedWhenArrived() {
+    PickupQueueItem item =
+        new PickupQueueItem(null, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 10);
+    item.markAsArrived();
+    Instant before = Instant.now();
+
+    item.markAsCompleted();
+
+    assertThat(item.status()).isEqualTo(QueueStatus.COMPLETED);
+    assertThat(item.updatedAt()).isAfterOrEqualTo(before);
+  }
+
+  @Test
+  @DisplayName("throws InvalidQueueStateException when EN_ROUTE")
+  void shouldThrowInvalidQueueStateExceptionWhenEnRoute() {
+    PickupQueueItem item =
+        new PickupQueueItem(null, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 10);
+
+    assertThatThrownBy(() -> item.markAsCompleted())
+        .isInstanceOf(InvalidQueueStateException.class)
+        .hasMessage("Aluno não pode ser entregue sem ter chegado");
+  }
+
+  @Test
+  @DisplayName("throws InvalidQueueStateException when already COMPLETED")
+  void shouldThrowInvalidQueueStateExceptionWhenAlreadyCompleted() {
+    PickupQueueItem item =
+        new PickupQueueItem(null, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 10);
+    item.markAsArrived();
+    item.markAsCompleted();
+
+    assertThatThrownBy(() -> item.markAsCompleted())
+        .isInstanceOf(InvalidQueueStateException.class)
+        .hasMessage("Aluno não pode ser entregue sem ter chegado");
+  }
 }
