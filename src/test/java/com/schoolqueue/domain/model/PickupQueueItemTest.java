@@ -83,11 +83,50 @@ class PickupQueueItemTest {
   }
 
   @Test
-  @DisplayName("transitions to COMPLETED when ARRIVED")
-  void shouldTransitionToCompletedWhenArrived() {
+  @DisplayName("transitions to CALLED when ARRIVED")
+  void shouldTransitionToCalledWhenArrived() {
     PickupQueueItem item =
         new PickupQueueItem(null, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 10);
     item.markAsArrived();
+    Instant before = Instant.now();
+
+    item.markAsCalled();
+
+    assertThat(item.status()).isEqualTo(QueueStatus.CALLED);
+    assertThat(item.updatedAt()).isAfterOrEqualTo(before);
+  }
+
+  @Test
+  @DisplayName("throws InvalidQueueStateException when not ARRIVED")
+  void shouldThrowInvalidQueueStateExceptionWhenNotArrived() {
+    PickupQueueItem item =
+        new PickupQueueItem(null, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 10);
+
+    assertThatThrownBy(() -> item.markAsCalled())
+        .isInstanceOf(InvalidQueueStateException.class)
+        .hasMessage("Aluno só pode ser chamado após o responsável chegar");
+
+    item.markAsArrived();
+    item.markAsCalled();
+
+    assertThatThrownBy(() -> item.markAsCalled())
+        .isInstanceOf(InvalidQueueStateException.class)
+        .hasMessage("Aluno só pode ser chamado após o responsável chegar");
+
+    item.markAsCompleted();
+
+    assertThatThrownBy(() -> item.markAsCalled())
+        .isInstanceOf(InvalidQueueStateException.class)
+        .hasMessage("Aluno só pode ser chamado após o responsável chegar");
+  }
+
+  @Test
+  @DisplayName("transitions to COMPLETED when CALLED")
+  void shouldTransitionToCompletedWhenCalled() {
+    PickupQueueItem item =
+        new PickupQueueItem(null, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 10);
+    item.markAsArrived();
+    item.markAsCalled();
     Instant before = Instant.now();
 
     item.markAsCompleted();

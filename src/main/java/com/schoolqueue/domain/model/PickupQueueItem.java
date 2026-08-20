@@ -67,6 +67,14 @@ public class PickupQueueItem {
     this.updatedAt = Instant.now();
   }
 
+  public void markAsCalled() {
+    if (this.status != QueueStatus.ARRIVED) {
+      throw new InvalidQueueStateException("Aluno só pode ser chamado após o responsável chegar");
+    }
+    this.status = QueueStatus.CALLED;
+    this.updatedAt = Instant.now();
+  }
+
   public void markAsCompleted() {
     if (this.status != QueueStatus.ARRIVED && this.status != QueueStatus.CALLED) {
       throw new InvalidQueueStateException("Aluno não pode ser entregue sem ter chegado");
