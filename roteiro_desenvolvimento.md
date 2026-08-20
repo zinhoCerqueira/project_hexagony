@@ -85,15 +85,18 @@ school-pickup-system/
 │   │   │           │
 │   │   │           ├── domain/                         <-- CORE (Zero libs externas)
 │   │   │           │   ├── model/
-│   │   │           │   │   ├── School.java
+│   │   │           │   │   ├── School.java            <-- inclui latitude/longitude (GPS)
 │   │   │           │   │   ├── Classroom.java
 │   │   │           │   │   ├── Student.java
 │   │   │           │   │   ├── Parent.java
-│   │   │           │   │   ├── PickupQueueItem.java
-│   │   │           │   │   └── QueueStatus.java        <-- (EN ROUTE, ARRIVED, CALLED, COMPLETED, CANCELLED)
+│   │   │           │   │   ├── PickupQueueItem.java   <-- journeyStatus + called + currentRange
+│   │   │           │   │   ├── QueueStatus.java       <-- (EN_ROUTE, ARRIVED, COMPLETED, CANCELLED)
+│   │   │           │   │   ├── ProximityRange.java    <-- (FAR, MEDIUM, CLOSE)
+│   │   │           │   │   └── LocationSharingStatus.java <-- (ACTIVE, EXPIRED)
 │   │   │           │   ├── exception/
 │   │   │           │   │   ├── StudentNotFoundException.java
-│   │   │           │   │   └── InvalidQueueStateException.java
+│   │   │           │   │   ├── InvalidQueueStateException.java
+│   │   │           │   │   └── InvalidSharingSessionException.java
 │   │   │           │   └── ports/                      <-- CONTRATOS
 │   │   │               ├── in/                         <-- Driving Ports (Casos de Uso)
 │   │   │               │   ├── AnnounceArrivalUseCase.java
@@ -191,8 +194,10 @@ school-pickup-system/
  |------------------|<----------|------------------|
  | id: UUID         |           | id: UUID         |
  | name: String     |           | name: String     |
- +------------------+           +------------------+
-          ^                              ^
+ | latitude: BigDecimal (GPS) |  +------------------+
+ | longitude: BigDecimal (GPS)|
+ +------------------+                    ^
+          ^                              |
           | 1                            | 1
           |                              |
           | *                            | *
@@ -208,14 +213,17 @@ school-pickup-system/
           +--------------+---------------+
                          |
                          | *
-              +---------------------+
-              |   PickupQueueItem   |
-              |---------------------|
-              | id: UUID            |
-              | arrivalTime: Instant|
-              | status: Enum        |
-              | estimatedEtaMinutes |
-              +---------------------+
+              +------------------------------+
+              |        PickupQueueItem       |
+              |------------------------------|
+              | id: UUID                     |
+              | journeyStatus: QueueStatus   |
+              | called: boolean              |
+              | currentRange: ProximityRange |
+              | estimatedEtaMinutes          |
+              | latitude/longitude (pai, GPS)|
+              | created/updatedAt            |
+              +------------------------------+
 ```
 
 ### Padrão das Entidades Puras (Domain Model)
@@ -254,12 +262,24 @@ public class Student {
 
 > Entidades com ciclo de vida próprio (ex.: `PickupQueueItem`, `LocationSharingSession`) fogem deste padrão: além do `id`, mantêm `final` em campos imutáveis de contexto (ex.: `createdAt`) e expõem métodos de negócio que transicionam o estado em vez de setters genéricos.
 
-### Estados da Fila (QueueStatus):
+### Estados da Fila (QueueStatus) e Ranges de Proximidade
+
+O fluxo da fila é **dirigido por GPS**: o responsável anuncia a chegada já compartilhando sua localização em tempo real, e a distância até a escola define o range de proximidade que controla quando o aluno é chamado.
+
+**`QueueStatus` (eixo principal da jornada):**
 - **EN_ROUTE:** Pai notificou que está a caminho.
-- **ARRIVED:** Pai chegou no perímetro escolar.
-- **CALLED:** Aluno foi chamado na sala de aula.
-- **COMPLETED:** Aluno entregue ao responsável.
-- **CANCELLED:** Chamada descartada/cancelada.
+- **ARRIVED:** Pai chegou no perímetro escolar (opcional; não é pré-requisito para chamar ou entregar).
+- **COMPLETED:** Aluno entregue ao responsável (terminal).
+- **CANCELLED:** Chamada descartada/cancelada (terminal).
+
+> O `CALLED` **não é mais um estado do enum**: vira a flag booleana `called` na entidade, permitindo combinações naturais como "EN_ROUTE + CALLED" ou "ARRIVED + CALLED".
+
+**`ProximityRange` (3 tiers, dirigidos por GPS/ETA):**
+- **FAR:** ETA > 15 minutos.
+- **MEDIUM:** 5 < ETA ≤ 15 minutos.
+- **CLOSE:** ETA ≤ 5 minutos.
+
+> Limites configuráveis (via `application.yml`). Ao entrar no range **CLOSE**, o sistema marca `called = true` automaticamente.
 
 ---
 
@@ -390,36 +410,62 @@ public class PickupQueueItem {
     private final UUID schoolId;
     private final UUID studentId;
     private final UUID parentId;
-    private QueueStatus status;
+    private QueueStatus journeyStatus;
+    private boolean called;
+    private ProximityRange currentRange;
+    private BigDecimal latitude;   // GPS do pai
+    private BigDecimal longitude;  // GPS do pai
     private Integer estimatedEtaMinutes;
     private final Instant createdAt;
     private Instant updatedAt;
 
-    public PickupQueueItem(UUID id, UUID schoolId, UUID studentId, UUID parentId, Integer estimatedEtaMinutes) {
+    public PickupQueueItem(UUID id, UUID schoolId, UUID studentId, UUID parentId,
+                           Integer estimatedEtaMinutes, ProximityRange initialRange) {
         this.id = id != null ? id : UUID.randomUUID();
         this.schoolId = schoolId;
         this.studentId = studentId;
         this.parentId = parentId;
-        this.status = QueueStatus.EN_ROUTE;
+        this.journeyStatus = QueueStatus.EN_ROUTE;
+        this.called = initialRange == ProximityRange.CLOSE;
+        this.currentRange = initialRange;
         this.estimatedEtaMinutes = estimatedEtaMinutes;
         this.createdAt = Instant.now();
         this.updatedAt = Instant.now();
     }
 
-    // Regras de Negócio Puras
+    // Regras de Negócio Puras (dirigidas por GPS)
+    public void updateRange(ProximityRange newRange) {
+        if (this.journeyStatus == QueueStatus.COMPLETED || this.journeyStatus == QueueStatus.CANCELLED) {
+            throw new InvalidQueueStateException("Fila já finalizada ou cancelada");
+        }
+        this.currentRange = newRange;
+        if (newRange == ProximityRange.CLOSE && !this.called) {
+            this.called = true; // auto-chamada ao entrar no range mais próximo
+        }
+        this.updatedAt = Instant.now();
+    }
+
     public void markAsArrived() {
-        if (this.status != QueueStatus.EN_ROUTE) {
+        if (this.journeyStatus != QueueStatus.EN_ROUTE) {
             throw new InvalidQueueStateException("Apenas responsáveis a caminho podem ser marcados como 'Chegou'");
         }
-        this.status = QueueStatus.ARRIVED;
+        this.journeyStatus = QueueStatus.ARRIVED;
         this.updatedAt = Instant.now();
     }
 
     public void markAsCompleted() {
-        if (this.status != QueueStatus.ARRIVED && this.status != QueueStatus.CALLED) {
-            throw new InvalidQueueStateException("Aluno não pode ser entregue sem ter chegado");
+        if (!this.called) {
+            throw new InvalidQueueStateException("Aluno não pode ser entregue sem ter sido chamado");
         }
-        this.status = QueueStatus.COMPLETED;
+        this.journeyStatus = QueueStatus.COMPLETED;
+        this.updatedAt = Instant.now();
+    }
+
+    public void cancel() {
+        if (this.journeyStatus == QueueStatus.COMPLETED) {
+            throw new InvalidQueueStateException("Entrega concluída não pode ser cancelada");
+        }
+        this.journeyStatus = QueueStatus.CANCELLED;
         this.updatedAt = Instant.now();
     }
 
@@ -463,6 +509,8 @@ public interface AnnounceArrivalUseCase {
         UUID schoolId,
         UUID studentId,
         UUID parentId,
+        BigDecimal latitude,   // GPS inicial do pai
+        BigDecimal longitude,  // GPS inicial do pai
         Integer etaMinutes
     ) {}
 }
@@ -497,12 +545,16 @@ public class AnnounceArrivalService implements AnnounceArrivalUseCase {
                 throw new IllegalStateException("Já existe um aviso de saída ativo para este aluno.");
             });
 
+        // Calcula o range inicial com base no ETA/distância informada
+        ProximityRange initialRange = ProximityRange.fromEtaMinutes(command.etaMinutes());
+
         PickupQueueItem newItem = new PickupQueueItem(
             null,
             command.schoolId(),
             command.studentId(),
             command.parentId(),
-            command.etaMinutes()
+            command.etaMinutes(),
+            initialRange
         );
 
         PickupQueueItem savedItem = queueRepositoryPort.save(newItem);
@@ -568,6 +620,8 @@ public class PickupQueueController {
             request.schoolId(),
             request.studentId(),
             request.parentId(),
+            request.latitude(),
+            request.longitude(),
             request.etaMinutes()
         );
         
@@ -705,21 +759,33 @@ class AnnounceArrivalServiceTest {
 
 ---
 
-## 📍 8. Feature Complementar: Compartilhamento de GPS por 15 Minutos
+## 📍 8. Feature Core: Compartilhamento de GPS que Dirige o Fluxo da Fila
 
-> **Importante:** Esta feature deve ser desenvolvida **separadamente**, apenas **após** a conclusão e validação de toda a funcionalidade de "avisar que está indo buscar" (Anunciar Chegada) **sem** a parte de GPS. O objetivo é manter o escopo base da fila de saída funcional e testado antes de evoluir com rastreamento de localização.
+> **Importante:** o GPS deixa de ser uma feature complementar separada e passa a **dirigir o fluxo da fila**. A escola cadastra suas coordenadas (GPS da escola) e o responsável compartilha a localização em tempo real; a distância entre eles define o range de proximidade que controla a chamada do aluno.
 
 ### O Problema
-O responsável avisa que está indo buscar o aluno, mas a escola não tem como estimar com precisão o momento real da chegada do responsável ao portão, gerando chamadas prematuras ou atrasadas do aluno.
+O responsável avisa que está indo buscar o aluno, mas a escola não tem como estimar com precisão o momento real da chegada ao portão, gerando chamadas prematuras ou atrasadas do aluno. Sem o GPS, a transição de estados é rígida (`EN_ROUTE → ARRIVED → CALLED`) e depende de ações manuais.
 
 ### A Solução
-Quando o responsável notificar a escola que está indo buscar o aluno (ação do `AnnounceArrivalUseCase`), o sistema iniciará uma **sessão de compartilhamento de localização (GPS) do responsável com a escola** com duração de **15 minutos**. Durante esse período, a escola poderá acompanhar a posição em tempo real do responsável se aproximando do perímetro escolar, refinando a estimativa de chegada e preparando o aluno na hora certa.
+Quando o responsável notifica que está indo buscar (ação do `AnnounceArrivalUseCase`), o sistema inicia uma **sessão de compartilhamento de localização (GPS) do responsável com a escola** com duração do **ciclo completo da fila** (até `COMPLETED`/`CANCELLED`). A cada atualização de GPS, o sistema recalcula a distância até a **GPS da escola** e classifica o responsável em um dos **3 ranges de proximidade**; ao entrar no range mais próximo, o aluno é **automaticamente chamado** (`called = true`).
+
+### GPS da Escola
+- A entidade `School` passa a ter `latitude` e `longitude` (coordenadas do portão/perímetro escolar).
+- É o ponto de referência para o cálculo de distância/ETA do responsável.
+- Migração `V1`/`V2` ganha as colunas `latitude`/`longitude` na tabela `schools`; endpoint de cadastro de escola recebe as coordenadas.
 
 ### Novos Elementos de Domínio (Core)
 
+**`ProximityRange` (3 tiers de proximidade):**
+- **FAR:** ETA > 15 minutos.
+- **MEDIUM:** 5 < ETA ≤ 15 minutos.
+- **CLOSE:** ETA ≤ 5 minutos (dispara `called = true` automaticamente).
+
+> Método utilitário `ProximityRange.fromEtaMinutes(Integer eta)` converte ETA → range. Limites configuráveis via `application.yml`.
+
 **Estados da Sessão de Compartilhamento (`LocationSharingStatus`):**
-- **ACTIVE:** Compartilhamento em andamento (dentro dos 15 minutos).
-- **EXPIRED:** Período de 15 minutos encerrado (compartilhamento automaticamente desativado).
+- **ACTIVE:** Compartilhamento em andamento (item da fila ativo).
+- **EXPIRED:** Item da fila finalizado (`COMPLETED`) ou cancelado (`CANCELLED`) — a sessão é encerrada automaticamente.
 
 **Entidade Pura `LocationSharingSession`:**
 ```java
@@ -729,7 +795,6 @@ public class LocationSharingSession {
     private final UUID parentId;
     private final UUID schoolId;
     private final Instant startedAt;  // = momento do anúncio de chegada
-    private final Instant expiresAt;  // = startedAt + 15 minutes
     private LocationSharingStatus status;
     private BigDecimal latitude;
     private BigDecimal longitude;
@@ -738,15 +803,15 @@ public class LocationSharingSession {
     // Regras de Negócio Puras
     public void updateLocation(BigDecimal latitude, BigDecimal longitude) {
         if (this.status != LocationSharingStatus.ACTIVE) {
-            throw new InvalidSharingSessionException("Sessão de GPS expirada ou inativa.");
-        }
-        if (Instant.now().isAfter(this.expiresAt)) {
-            this.status = LocationSharingStatus.EXPIRED;
-            throw new InvalidSharingSessionException("Tempo de compartilhamento (15 min) encerrado.");
+            throw new InvalidSharingSessionException("Sessão de GPS encerrada ou inativa.");
         }
         this.latitude = latitude;
         this.longitude = longitude;
         this.lastUpdatedAt = Instant.now();
+    }
+
+    public void end() {  // chamado ao COMPLETED/CANCELLED
+        this.status = LocationSharingStatus.EXPIRED;
     }
     // Getters omitidos para brevidade...
 }
@@ -762,7 +827,7 @@ public interface StartLocationSharingUseCase {
 }
 
 public interface UpdateParentLocationUseCase {
-    LocationSharingSession execute(UpdateLocationCommand command);
+    PickupQueueItem execute(UpdateLocationCommand command);
     record UpdateLocationCommand(UUID sharingSessionId, BigDecimal latitude, BigDecimal longitude) {}
 }
 
@@ -770,6 +835,8 @@ public interface FetchSharedLocationUseCase {
     Optional<LocationSharingSession> execute(UUID schoolId, UUID sharingSessionId);
 }
 ```
+
+> O `UpdateParentLocationUseCase` recalcula o range (comparando com a GPS da escola) e aplica `updateRange(...)` no item da fila — é ele que dirige a auto-chamada.
 
 **Driven Port:**
 ```java
@@ -780,19 +847,22 @@ public interface LocationSharingRepositoryPort {
 }
 ```
 
-### Integração com o Fluxo Existente
-- O `AnnounceArrivalService` passa a acionar também o `StartLocationSharingUseCase` ao salvar um novo item na fila (opcional e desacoplado — o fluxo principal não depende do GPS para funcionar).
+### Integração com o Fluxo Principal
+- O `AnnounceArrivalService` inicia a sessão de GPS ao salvar um novo item na fila (desacoplado e resiliente — falha do GPS não impede o anúncio).
 - Adaptadores de entrada adicionais no Controller REST:
+  - `POST /api/v1/schools` — cadastra escola **com latitude/longitude** (GPS da escola).
   - `POST /api/v1/location-sharing` — iniciar compartilhamento (ou retornado automaticamente pela resposta do `/announce`).
-  - `PATCH /api/v1/location-sharing/{id}/location` — receber atualização de GPS do responsável.
+  - `PATCH /api/v1/location-sharing/{id}/location` — receber atualização de GPS do responsável (recalcula range e pode auto-chamar).
   - `GET /api/v1/location-sharing/school/{schoolId}/active` — escola consulta sessões ativas.
 - **Nota de realidade técnica:** Em um app real, o GPS seria enviado periodicamente pelo aplicativo do responsável via webhook/websocket; para fins de estudo, os endpoints REST acima simulam esse comportamento.
 
 ### Regras de Negócio Resumidas
 - Compartilhamento inicia junto com o anúncio de chegada (`EN_ROUTE`).
-- Duração fixa de **15 minutos** a partir do início (auto-expiração ao validar qualquer atualização).
+- A sessão dura **todo o ciclo da fila** (encerrada ao `COMPLETED`/`CANCELLED`), não mais 15 minutos fixos.
+- A distância pai ↔ **GPS da escola** define o `ProximityRange` (FAR/MEDIUM/CLOSE).
+- Ao entrar em `CLOSE`, o aluno é **automaticamente chamado** (`called = true`) — podendo ficar "EN_ROUTE + CALLED" ou "ARRIVED + CALLED".
+- `ARRIVED` é opcional (marcado quando o pai chega fisicamente) e não é pré-requisito para chamar/entregar.
 - Apenas a escola vinculada pode consultar a localização.
-- Após o expirar ou a entrega concluída, a sessão é encerrada (nenhum dado de localização é persistido além do necessário).
 
 ---
 
@@ -804,15 +874,15 @@ Siga a ordem sequencial abaixo para construir o projeto do zero:
   - [ ] Subir o container Docker (`docker-compose up -d`).
   - [ ] Validar a criação do banco executando a query `SELECT * FROM schools;` via cliente Postgres.
 - [ ] **Fase 2: Core (Domínio Puramente Java)**
-  - [ ] Criar as Entidades Java puras (`School`, `Student`, `Parent`, `PickupQueueItem`).
-  - [ ] Criar Enums e Exceções de Domínio.
-  - [ ] Escrever Testes Unitários com JUnit 5 para os métodos de transição de estado na entidade `PickupQueueItem`.
+  - [ ] Criar as Entidades Java puras (`School` com latitude/longitude, `Student`, `Parent`, `PickupQueueItem`).
+  - [ ] Criar Enums (`QueueStatus`, `ProximityRange`, `LocationSharingStatus`) e Exceções de Domínio.
+  - [ ] Escrever Testes Unitários com JUnit 5 para as transições de estado na entidade `PickupQueueItem` (dirigidas por GPS: `updateRange`, `markAsArrived`, `markAsCompleted`, `cancel`).
   - [ ] Criar Testes Unitários (JUnit 5 + AssertJ) para as entidades `School`, `Classroom`, `Parent` e `Student` — teste (RED) antes da implementação (TDD).
 - [ ] **Fase 3: Contratos & Casos de Uso**
   - [ ] Criar os pacotes `ports.in` e `ports.out`.
-  - [ ] Implementar as interfaces dos Use Cases.
+  - [ ] Implementar as interfaces dos Use Cases (`AnnounceArrivalUseCase`, `UpdateQueueStatusUseCase`, `FetchActiveQueueUseCase`, casos de GPS).
   - [ ] Implementar as classes de Serviço que orquestram a lógica no pacote `application`.
-  - [ ] Escrever Testes Unitários dos services (JUnit 5 + Mockito) antes de implementá-los (TDD): `AnnounceArrivalService`, `UpdateQueueStatusService`, `FetchActiveQueueService`.
+  - [ ] Escrever Testes Unitários dos services (JUnit 5 + Mockito) antes de implementá-los (TDD).
 - [ ] **Fase 4: Adaptadores de Banco de Dados**
   - [ ] Criar as entidades JPA (`@Entity`) no pacote `infrastructure.adapters.out.persistence.entity`.
   - [ ] Criar os Mappers para converter entre `Domain Model` <-> `JPA Entity`.
@@ -820,24 +890,25 @@ Siga a ordem sequencial abaixo para construir o projeto do zero:
   - [ ] Escrever testes de persistência (`@DataJpaTest` + Testcontainers Postgres) para repositórios e adapters — teste (RED) antes da implementação (TDD).
 - [ ] **Fase 5: Adaptadores REST e Configurações Spring**
   - [ ] Criar as classes de configuração `@Configuration` para publicar os Beans de Domínio.
-  - [ ] Criar o Controller REST `@RestController`.
+  - [ ] Criar o Controller REST `@RestController` (escola com GPS, anúncio, atualização de GPS/range, fila ativa).
   - [ ] Escrever testes dos controllers (`@WebMvcTest`) e do `ExceptionHandler` (409/400) antes de implementá-los (TDD).
   - [ ] Executar a aplicação Spring Boot.
 - [ ] **Fase 6: Testes E2E com Bruno**
-  - [ ] Executar as requisições na ordem: Criar Escola -> Cadastrar Aluno -> Anunciar Chegada -> Marcar Chegada -> Finalizar Entregas.
+  - [ ] Executar as requisições na ordem: Criar Escola (com GPS) -> Cadastrar Aluno -> Anunciar Chegada -> Atualizar GPS (entrar no range CLOSE e auto-chamar) -> Marcar Chegada (opcional) -> Finalizar Entrega.
 - [ ] **Fase 6.5: Testes de Integração e Qualidade**
   - [ ] Criar `PickupQueueFlowIT` (`@SpringBootTest` + Testcontainers postgres/rabbitmq) validando o fluxo E2E automatizado e a publicação no RabbitMQ.
   - [ ] Rodar `mvn verify` com o gate JaCoCo (linha >= 80%, ramo >= 70%) e validar o relatório de cobertura.
-- [ ] **Fase 7 (separada): Compartilhamento de GPS por 15 Minutos** — *somente após as Fases 1–6 concluídas e validadas, sem a parte de GPS*
-  - [ ] Criar o enum `LocationSharingStatus` e a entidade pura `LocationSharingSession` no Core com a regra de auto-expiração de 15 minutos.
-  - [ ] Escrever testes unitários (JUnit 5) para a regra de expiração dos 15 minutos na entidade.
+- [ ] **Fase 7: Compartilhamento de GPS (agora dirige o fluxo da fila)**
+  - [ ] Adicionar latitude/longitude à entidade `School` e à migração da tabela `schools`.
+  - [ ] Criar o enum `ProximityRange` (FAR/MEDIUM/CLOSE) com `fromEtaMinutes(...)` e a entidade pura `LocationSharingSession` (sessão dura o ciclo completo da fila).
+  - [ ] Escrever testes unitários (JUnit 5) para o cálculo de range e o encerramento da sessão.
   - [ ] Criar as portas `StartLocationSharingUseCase`, `UpdateParentLocationUseCase`, `FetchSharedLocationUseCase` e `LocationSharingRepositoryPort`.
-  - [ ] Escrever testes TDD dos services de GPS (Mockito): `StartLocationSharingService`, `UpdateParentLocationService`, `FetchSharedLocationService`.
+  - [ ] Escrever testes TDD dos services de GPS (Mockito).
   - [ ] Implementar os serviços no pacote `application` e integrar (desacoplado) ao `AnnounceArrivalService`.
   - [ ] Escrever testes de persistência do GPS (`@DataJpaTest` + Testcontainers) e validar a migração `V2__location_sharing.sql`.
   - [ ] Criar a entidade JPA, mapper e adaptador de persistência para `LocationSharingSession`.
-  - [ ] Adicionar a migração SQL da tabela `location_sharing`.
+  - [ ] Adicionar a migração SQL da tabela `location_sharing` e das colunas de GPS em `schools`/`pickup_queue`.
   - [ ] Escrever testes dos endpoints REST de GPS (`@WebMvcTest`) e mapeamento 400/409.
-  - [ ] Expor os endpoints REST de iniciar compartilhamento, atualizar localização e consultar sessões ativas.
+  - [ ] Expor os endpoints REST de iniciar compartilhamento, atualizar localização (recalcula range) e consultar sessões ativas.
   - [ ] Criar `LocationSharingFlowIT` (`@SpringBootTest` + Testcontainers) para o fluxo E2E do GPS.
-  - [ ] Testar via Bruno: Anunciar Chegada -> Atualizar GPS -> Consultar localização na escola -> Validar expiração após 15 min.
+  - [ ] Testar via Bruno: Criar Escola com GPS -> Anunciar Chegada -> Atualizar GPS -> Validar auto-chamada ao entrar no range CLOSE -> Finalizar.
