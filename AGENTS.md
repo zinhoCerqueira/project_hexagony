@@ -24,7 +24,15 @@ Fluxo padrão:
 1. `git checkout main && git pull`
 2. `git checkout -b feature/<nome>`
 3. Trabalhe e faça commits atômicos.
-4. Integre de volta em `main` (merge/pull request) e delete a branch de trabalho.
+4. Apresente o resumo de encerramento da task (ver seção abaixo).
+5. Com permissão explícita do usuário, integre em `main` (merge) e delete a branch de trabalho.
+
+## Encerramento de task
+
+- Toda task termina com um **resumo do que foi feito**: arquivos criados/alterados,
+  decisões relevantes, verificação executada (build/testes) e os commits gerados.
+- O merge para `main` **nunca é automático**: após o resumo, pergunte sempre ao usuário
+  se pode integrar e só execute o merge/delete da branch após aprovação explícita.
 
 ## Convenção de commits
 
