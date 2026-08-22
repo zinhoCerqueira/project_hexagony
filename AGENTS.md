@@ -9,7 +9,7 @@ versionamento e a organização do trabalho devem ser conduzidos a partir de ago
 - **Arquitetura:** Hexagonal (Ports & Adapters), Java 21, Spring Boot 3.x, Maven.
 - **Infra local:** Docker Compose (PostgreSQL + RabbitMQ), credenciais em `.env` (raiz, não commitado).
 - **Roteiro:** as tarefas são numeradas em `roteiro_desenvolvimento.md` (ex.: Task 10, Task 11).
-  Referencie o número da task nos commits quando o trabalho corresponder a uma delas.
+  Referencie a task via prefixo no commit, conforme a seção "Convenção de commits".
 
 ## Convenção de branches
 
@@ -37,10 +37,10 @@ Fluxo padrão:
 ## Convenção de commits
 
 - Mensagens em **português**, descritivas e no estilo do histórico existente.
-- Comece com um verbo/setup (ex.: "Setup", "Adiciona", "Corrige", "Refatora", "Torna explícito").
+- Quando o trabalho atende a uma task do roteiro, inicie a mensagem com o prefixo
+  `[Task NNN]`, seguido do verbo/descrição. Ex.: `[Task 10] Setup .env com credenciais centralizadas`.
+- Commits que não correspondem a nenhuma task não levam o prefixo (ex.: ajustes de docs, chores avulsos).
 - Commits atômicos: um commit por mudança coesa.
-- Quando o trabalho atende a uma task do roteiro, mencione o número dela ao final da mensagem.
-  Ex.: `Setup .env com credenciais centralizadas (Task 10)`.
 - Nunca commite secrets: `.env` e arquivos sensíveis estão no `.gitignore`.
 - Revise `git status` e `git diff` antes de commitar; inclua apenas arquivos relacionados.
 
