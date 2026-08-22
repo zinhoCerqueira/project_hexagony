@@ -11,6 +11,11 @@ import org.junit.jupiter.api.Test;
 
 class PickupQueueItemTest {
 
+  private PickupQueueItem newItem(ProximityRange initialRange) {
+    return new PickupQueueItem(
+        null, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 10, initialRange);
+  }
+
   @Test
   @DisplayName("exposes all fields when constructed with an explicit id")
   void shouldExposeAllFieldsWhenConstructedWithExplicitId() {
@@ -19,30 +24,28 @@ class PickupQueueItemTest {
     UUID studentId = UUID.randomUUID();
     UUID parentId = UUID.randomUUID();
 
-    PickupQueueItem item = new PickupQueueItem(id, schoolId, studentId, parentId, 10);
+    PickupQueueItem item =
+        new PickupQueueItem(id, schoolId, studentId, parentId, 10, ProximityRange.FAR);
 
     assertThat(item.id()).isEqualTo(id);
     assertThat(item.schoolId()).isEqualTo(schoolId);
     assertThat(item.studentId()).isEqualTo(studentId);
     assertThat(item.parentId()).isEqualTo(parentId);
     assertThat(item.estimatedEtaMinutes()).isEqualTo(10);
-    assertThat(item.status()).isEqualTo(QueueStatus.EN_ROUTE);
+    assertThat(item.journeyStatus()).isEqualTo(QueueStatus.EN_ROUTE);
+    assertThat(item.called()).isFalse();
+    assertThat(item.currentRange()).isEqualTo(ProximityRange.FAR);
+    assertThat(item.latitude()).isNull();
+    assertThat(item.longitude()).isNull();
   }
 
   @Test
   @DisplayName("generates an id when constructed with a null id")
   void shouldGenerateIdWhenConstructedWithNullId() {
-    UUID schoolId = UUID.randomUUID();
-    UUID studentId = UUID.randomUUID();
-    UUID parentId = UUID.randomUUID();
-
-    PickupQueueItem item = new PickupQueueItem(null, schoolId, studentId, parentId, 10);
+    PickupQueueItem item = newItem(ProximityRange.MEDIUM);
 
     assertThat(item.id()).isNotNull();
-    assertThat(item.schoolId()).isEqualTo(schoolId);
-    assertThat(item.studentId()).isEqualTo(studentId);
-    assertThat(item.parentId()).isEqualTo(parentId);
-    assertThat(item.status()).isEqualTo(QueueStatus.EN_ROUTE);
+    assertThat(item.journeyStatus()).isEqualTo(QueueStatus.EN_ROUTE);
   }
 
   @Test
@@ -50,112 +53,188 @@ class PickupQueueItemTest {
   void shouldInitializeCreatedAtAndUpdatedAtOnConstruction() {
     Instant before = Instant.now();
 
-    PickupQueueItem item =
-        new PickupQueueItem(null, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 10);
+    PickupQueueItem item = newItem(ProximityRange.FAR);
 
     assertThat(item.createdAt()).isNotNull().isAfterOrEqualTo(before);
     assertThat(item.updatedAt()).isNotNull().isAfterOrEqualTo(before);
   }
 
   @Test
-  @DisplayName("transitions to ARRIVED when EN_ROUTE")
-  void shouldTransitionToArrivedWhenEnRoute() {
-    PickupQueueItem item =
-        new PickupQueueItem(null, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 10);
+  @DisplayName("starts as called when the initial range is CLOSE")
+  void shouldStartCalledWhenInitialRangeIsClose() {
+    PickupQueueItem item = newItem(ProximityRange.CLOSE);
+
+    assertThat(item.called()).isTrue();
+    assertThat(item.currentRange()).isEqualTo(ProximityRange.CLOSE);
+  }
+
+  @Test
+  @DisplayName("updates the current range and bumps updatedAt")
+  void shouldUpdateRangeAndBumpUpdatedAt() {
+    PickupQueueItem item = newItem(ProximityRange.FAR);
     Instant before = Instant.now();
 
-    item.markAsArrived();
+    item.updateRange(ProximityRange.MEDIUM);
 
-    assertThat(item.status()).isEqualTo(QueueStatus.ARRIVED);
+    assertThat(item.currentRange()).isEqualTo(ProximityRange.MEDIUM);
     assertThat(item.updatedAt()).isAfterOrEqualTo(before);
   }
 
   @Test
-  @DisplayName("throws InvalidQueueStateException when not EN_ROUTE")
-  void shouldThrowInvalidQueueStateExceptionWhenNotEnRoute() {
-    PickupQueueItem item =
-        new PickupQueueItem(null, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 10);
+  @DisplayName("auto-calls the student when entering the CLOSE range")
+  void shouldAutoCallStudentWhenEnteringCloseRange() {
+    PickupQueueItem item = newItem(ProximityRange.FAR);
+    Instant before = Instant.now();
+
+    item.updateRange(ProximityRange.CLOSE);
+
+    assertThat(item.currentRange()).isEqualTo(ProximityRange.CLOSE);
+    assertThat(item.called()).isTrue();
+    assertThat(item.journeyStatus()).isEqualTo(QueueStatus.EN_ROUTE);
+    assertThat(item.updatedAt()).isAfterOrEqualTo(before);
+  }
+
+  @Test
+  @DisplayName("keeps the called flag when leaving and re-entering ranges")
+  void shouldKeepCalledFlagWhenChangingRangesAfterCall() {
+    PickupQueueItem item = newItem(ProximityRange.CLOSE);
+
+    item.updateRange(ProximityRange.MEDIUM);
+    item.updateRange(ProximityRange.FAR);
+
+    assertThat(item.currentRange()).isEqualTo(ProximityRange.FAR);
+    assertThat(item.called()).isTrue();
+  }
+
+  @Test
+  @DisplayName("throws InvalidQueueStateException when updating range after completion")
+  void shouldThrowInvalidQueueStateExceptionWhenUpdatingRangeAfterCompleted() {
+    PickupQueueItem item = newItem(ProximityRange.CLOSE);
+    item.markAsCompleted();
+
+    assertThatThrownBy(() -> item.updateRange(ProximityRange.FAR))
+        .isInstanceOf(InvalidQueueStateException.class)
+        .hasMessage("Fila já finalizada ou cancelada");
+  }
+
+  @Test
+  @DisplayName("throws InvalidQueueStateException when updating range after cancellation")
+  void shouldThrowInvalidQueueStateExceptionWhenUpdatingRangeAfterCancelled() {
+    PickupQueueItem item = newItem(ProximityRange.FAR);
+    item.cancel();
+
+    assertThatThrownBy(() -> item.updateRange(ProximityRange.CLOSE))
+        .isInstanceOf(InvalidQueueStateException.class)
+        .hasMessage("Fila já finalizada ou cancelada");
+  }
+
+  @Test
+  @DisplayName("transitions to ARRIVED when EN_ROUTE")
+  void shouldTransitionToArrivedWhenEnRoute() {
+    PickupQueueItem item = newItem(ProximityRange.FAR);
+    Instant before = Instant.now();
+
     item.markAsArrived();
 
-    assertThatThrownBy(() -> item.markAsArrived())
+    assertThat(item.journeyStatus()).isEqualTo(QueueStatus.ARRIVED);
+    assertThat(item.updatedAt()).isAfterOrEqualTo(before);
+  }
+
+  @Test
+  @DisplayName("throws InvalidQueueStateException when marking as arrived when not EN_ROUTE")
+  void shouldThrowInvalidQueueStateExceptionWhenMarkingArrivedWhenNotEnRoute() {
+    PickupQueueItem arrived = newItem(ProximityRange.FAR);
+    arrived.markAsArrived();
+
+    assertThatThrownBy(arrived::markAsArrived)
+        .isInstanceOf(InvalidQueueStateException.class)
+        .hasMessage("Apenas responsáveis a caminho podem ser marcados como 'Chegou'");
+
+    PickupQueueItem completed = newItem(ProximityRange.CLOSE);
+    completed.markAsCompleted();
+
+    assertThatThrownBy(completed::markAsArrived)
+        .isInstanceOf(InvalidQueueStateException.class)
+        .hasMessage("Apenas responsáveis a caminho podem ser marcados como 'Chegou'");
+
+    PickupQueueItem cancelled = newItem(ProximityRange.FAR);
+    cancelled.cancel();
+
+    assertThatThrownBy(cancelled::markAsArrived)
         .isInstanceOf(InvalidQueueStateException.class)
         .hasMessage("Apenas responsáveis a caminho podem ser marcados como 'Chegou'");
   }
 
   @Test
-  @DisplayName("transitions to CALLED when ARRIVED")
-  void shouldTransitionToCalledWhenArrived() {
-    PickupQueueItem item =
-        new PickupQueueItem(null, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 10);
-    item.markAsArrived();
-    Instant before = Instant.now();
-
-    item.markAsCalled();
-
-    assertThat(item.status()).isEqualTo(QueueStatus.CALLED);
-    assertThat(item.updatedAt()).isAfterOrEqualTo(before);
-  }
-
-  @Test
-  @DisplayName("throws InvalidQueueStateException when not ARRIVED")
-  void shouldThrowInvalidQueueStateExceptionWhenNotArrived() {
-    PickupQueueItem item =
-        new PickupQueueItem(null, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 10);
-
-    assertThatThrownBy(() -> item.markAsCalled())
-        .isInstanceOf(InvalidQueueStateException.class)
-        .hasMessage("Aluno só pode ser chamado após o responsável chegar");
-
-    item.markAsArrived();
-    item.markAsCalled();
-
-    assertThatThrownBy(() -> item.markAsCalled())
-        .isInstanceOf(InvalidQueueStateException.class)
-        .hasMessage("Aluno só pode ser chamado após o responsável chegar");
-
-    item.markAsCompleted();
-
-    assertThatThrownBy(() -> item.markAsCalled())
-        .isInstanceOf(InvalidQueueStateException.class)
-        .hasMessage("Aluno só pode ser chamado após o responsável chegar");
-  }
-
-  @Test
-  @DisplayName("transitions to COMPLETED when CALLED")
-  void shouldTransitionToCompletedWhenCalled() {
-    PickupQueueItem item =
-        new PickupQueueItem(null, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 10);
-    item.markAsArrived();
-    item.markAsCalled();
+  @DisplayName("completes while EN_ROUTE when already called by GPS")
+  void shouldCompleteWhileEnRouteWhenAlreadyCalledByGps() {
+    PickupQueueItem item = newItem(ProximityRange.CLOSE);
     Instant before = Instant.now();
 
     item.markAsCompleted();
 
-    assertThat(item.status()).isEqualTo(QueueStatus.COMPLETED);
+    assertThat(item.journeyStatus()).isEqualTo(QueueStatus.COMPLETED);
+    assertThat(item.journeyStatus()).isNotEqualTo(QueueStatus.ARRIVED);
     assertThat(item.updatedAt()).isAfterOrEqualTo(before);
   }
 
   @Test
-  @DisplayName("throws InvalidQueueStateException when EN_ROUTE")
-  void shouldThrowInvalidQueueStateExceptionWhenEnRoute() {
-    PickupQueueItem item =
-        new PickupQueueItem(null, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 10);
+  @DisplayName("completes when ARRIVED and called")
+  void shouldCompleteWhenArrivedAndCalled() {
+    PickupQueueItem item = newItem(ProximityRange.FAR);
+    item.markAsArrived();
+    item.updateRange(ProximityRange.CLOSE);
+    Instant before = Instant.now();
 
-    assertThatThrownBy(() -> item.markAsCompleted())
-        .isInstanceOf(InvalidQueueStateException.class)
-        .hasMessage("Aluno não pode ser entregue sem ter chegado");
+    item.markAsCompleted();
+
+    assertThat(item.journeyStatus()).isEqualTo(QueueStatus.COMPLETED);
+    assertThat(item.updatedAt()).isAfterOrEqualTo(before);
   }
 
   @Test
-  @DisplayName("throws InvalidQueueStateException when already COMPLETED")
-  void shouldThrowInvalidQueueStateExceptionWhenAlreadyCompleted() {
-    PickupQueueItem item =
-        new PickupQueueItem(null, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 10);
-    item.markAsArrived();
+  @DisplayName("throws InvalidQueueStateException when completing without being called")
+  void shouldThrowInvalidQueueStateExceptionWhenCompletingWithoutBeingCalled() {
+    PickupQueueItem enRoute = newItem(ProximityRange.FAR);
+
+    assertThatThrownBy(enRoute::markAsCompleted)
+        .isInstanceOf(InvalidQueueStateException.class)
+        .hasMessage("Aluno não pode ser entregue sem ter sido chamado");
+
+    PickupQueueItem arrived = newItem(ProximityRange.MEDIUM);
+    arrived.markAsArrived();
+
+    assertThatThrownBy(arrived::markAsCompleted)
+        .isInstanceOf(InvalidQueueStateException.class)
+        .hasMessage("Aluno não pode ser entregue sem ter sido chamado");
+  }
+
+  @Test
+  @DisplayName("cancels from EN_ROUTE and ARRIVED")
+  void shouldCancelFromEnRouteAndArrived() {
+    PickupQueueItem enRoute = newItem(ProximityRange.FAR);
+    Instant before = Instant.now();
+
+    enRoute.cancel();
+
+    assertThat(enRoute.journeyStatus()).isEqualTo(QueueStatus.CANCELLED);
+    assertThat(enRoute.updatedAt()).isAfterOrEqualTo(before);
+
+    PickupQueueItem arrived = newItem(ProximityRange.MEDIUM);
+    arrived.markAsArrived();
+    arrived.cancel();
+
+    assertThat(arrived.journeyStatus()).isEqualTo(QueueStatus.CANCELLED);
+  }
+
+  @Test
+  @DisplayName("throws InvalidQueueStateException when cancelling a completed item")
+  void shouldThrowInvalidQueueStateExceptionWhenCancellingCompleted() {
+    PickupQueueItem item = newItem(ProximityRange.CLOSE);
     item.markAsCompleted();
 
-    assertThatThrownBy(() -> item.markAsCompleted())
+    assertThatThrownBy(item::cancel)
         .isInstanceOf(InvalidQueueStateException.class)
-        .hasMessage("Aluno não pode ser entregue sem ter chegado");
+        .hasMessage("Entrega concluída não pode ser cancelada");
   }
 }

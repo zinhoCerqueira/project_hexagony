@@ -1,6 +1,7 @@
 package com.schoolqueue.domain.model;
 
 import com.schoolqueue.domain.exception.InvalidQueueStateException;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -9,18 +10,29 @@ public class PickupQueueItem {
   private final UUID schoolId;
   private final UUID studentId;
   private final UUID parentId;
-  private final Instant createdAt;
-  private QueueStatus status;
+  private QueueStatus journeyStatus;
+  private boolean called;
+  private ProximityRange currentRange;
+  private BigDecimal latitude;
+  private BigDecimal longitude;
   private Integer estimatedEtaMinutes;
+  private final Instant createdAt;
   private Instant updatedAt;
 
   public PickupQueueItem(
-      UUID id, UUID schoolId, UUID studentId, UUID parentId, Integer estimatedEtaMinutes) {
+      UUID id,
+      UUID schoolId,
+      UUID studentId,
+      UUID parentId,
+      Integer estimatedEtaMinutes,
+      ProximityRange initialRange) {
     this.id = id != null ? id : UUID.randomUUID();
     this.schoolId = schoolId;
     this.studentId = studentId;
     this.parentId = parentId;
-    this.status = QueueStatus.EN_ROUTE;
+    this.journeyStatus = QueueStatus.EN_ROUTE;
+    this.called = initialRange == ProximityRange.CLOSE;
+    this.currentRange = initialRange;
     this.estimatedEtaMinutes = estimatedEtaMinutes;
     this.createdAt = Instant.now();
     this.updatedAt = Instant.now();
@@ -42,44 +54,71 @@ public class PickupQueueItem {
     return parentId;
   }
 
-  public Instant createdAt() {
-    return createdAt;
+  public QueueStatus journeyStatus() {
+    return journeyStatus;
   }
 
-  public QueueStatus status() {
-    return status;
+  public boolean called() {
+    return called;
+  }
+
+  public ProximityRange currentRange() {
+    return currentRange;
+  }
+
+  public BigDecimal latitude() {
+    return latitude;
+  }
+
+  public BigDecimal longitude() {
+    return longitude;
   }
 
   public Integer estimatedEtaMinutes() {
     return estimatedEtaMinutes;
   }
 
+  public Instant createdAt() {
+    return createdAt;
+  }
+
   public Instant updatedAt() {
     return updatedAt;
   }
 
-  public void markAsArrived() {
-    if (this.status != QueueStatus.EN_ROUTE) {
-      throw new InvalidQueueStateException(
-          "Apenas responsáveis a caminho podem ser marcados como 'Chegou'");
+  public void updateRange(ProximityRange newRange) {
+    if (this.journeyStatus == QueueStatus.COMPLETED || this.journeyStatus == QueueStatus.CANCELLED) {
+      throw new InvalidQueueStateException("Fila já finalizada ou cancelada");
     }
-    this.status = QueueStatus.ARRIVED;
+    this.currentRange = newRange;
+    if (newRange == ProximityRange.CLOSE && !this.called) {
+      this.called = true;
+    }
     this.updatedAt = Instant.now();
   }
 
-  public void markAsCalled() {
-    if (this.status != QueueStatus.ARRIVED) {
-      throw new InvalidQueueStateException("Aluno só pode ser chamado após o responsável chegar");
+  public void markAsArrived() {
+    if (this.journeyStatus != QueueStatus.EN_ROUTE) {
+      throw new InvalidQueueStateException(
+          "Apenas responsáveis a caminho podem ser marcados como 'Chegou'");
     }
-    this.status = QueueStatus.CALLED;
+    this.journeyStatus = QueueStatus.ARRIVED;
     this.updatedAt = Instant.now();
   }
 
   public void markAsCompleted() {
-    if (this.status != QueueStatus.ARRIVED && this.status != QueueStatus.CALLED) {
-      throw new InvalidQueueStateException("Aluno não pode ser entregue sem ter chegado");
+    if (!this.called) {
+      throw new InvalidQueueStateException("Aluno não pode ser entregue sem ter sido chamado");
     }
-    this.status = QueueStatus.COMPLETED;
+    this.journeyStatus = QueueStatus.COMPLETED;
+    this.updatedAt = Instant.now();
+  }
+
+  public void cancel() {
+    if (this.journeyStatus == QueueStatus.COMPLETED) {
+      throw new InvalidQueueStateException("Entrega concluída não pode ser cancelada");
+    }
+    this.journeyStatus = QueueStatus.CANCELLED;
     this.updatedAt = Instant.now();
   }
 }

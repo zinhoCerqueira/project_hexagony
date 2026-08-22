@@ -14,7 +14,6 @@ class QueueStatusTest {
         .containsExactly(
             QueueStatus.EN_ROUTE,
             QueueStatus.ARRIVED,
-            QueueStatus.CALLED,
             QueueStatus.COMPLETED,
             QueueStatus.CANCELLED);
   }
