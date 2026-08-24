@@ -87,7 +87,8 @@ public class PickupQueueItem {
   }
 
   public void updateRange(ProximityRange newRange) {
-    if (this.journeyStatus == QueueStatus.COMPLETED || this.journeyStatus == QueueStatus.CANCELLED) {
+    if (this.journeyStatus == QueueStatus.COMPLETED
+        || this.journeyStatus == QueueStatus.CANCELLED) {
       throw new InvalidQueueStateException("Fila já finalizada ou cancelada");
     }
     this.currentRange = newRange;
