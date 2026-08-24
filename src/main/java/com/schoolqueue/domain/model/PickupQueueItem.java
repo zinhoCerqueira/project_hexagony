@@ -98,6 +98,19 @@ public class PickupQueueItem {
     this.updatedAt = Instant.now();
   }
 
+  public void updateLocation(BigDecimal latitude, BigDecimal longitude) {
+    if (latitude == null || longitude == null) {
+      throw new IllegalArgumentException("Latitude and longitude must not be null");
+    }
+    if (this.journeyStatus == QueueStatus.COMPLETED
+        || this.journeyStatus == QueueStatus.CANCELLED) {
+      throw new InvalidQueueStateException("Fila já finalizada ou cancelada");
+    }
+    this.latitude = latitude;
+    this.longitude = longitude;
+    this.updatedAt = Instant.now();
+  }
+
   public void markAsArrived() {
     if (this.journeyStatus != QueueStatus.EN_ROUTE) {
       throw new InvalidQueueStateException(

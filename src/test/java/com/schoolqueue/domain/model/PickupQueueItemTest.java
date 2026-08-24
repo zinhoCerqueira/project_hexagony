@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.schoolqueue.domain.exception.InvalidQueueStateException;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -126,6 +127,77 @@ class PickupQueueItemTest {
     assertThatThrownBy(() -> item.updateRange(ProximityRange.CLOSE))
         .isInstanceOf(InvalidQueueStateException.class)
         .hasMessage("Fila já finalizada ou cancelada");
+  }
+
+  @Test
+  @DisplayName("records the parent location and bumps updatedAt")
+  void shouldRecordLocationAndBumpUpdatedAt() {
+    PickupQueueItem item = newItem(ProximityRange.FAR);
+    BigDecimal latitude = new BigDecimal("-23.5505");
+    BigDecimal longitude = new BigDecimal("-46.6333");
+    Instant before = Instant.now();
+
+    item.updateLocation(latitude, longitude);
+
+    assertThat(item.latitude()).isEqualTo(latitude);
+    assertThat(item.longitude()).isEqualTo(longitude);
+    assertThat(item.updatedAt()).isAfterOrEqualTo(before);
+  }
+
+  @Test
+  @DisplayName("overwrites the previous location on a subsequent update")
+  void shouldOverwritePreviousLocationOnSubsequentUpdate() {
+    PickupQueueItem item = newItem(ProximityRange.FAR);
+    item.updateLocation(new BigDecimal("-23.5505"), new BigDecimal("-46.6333"));
+    BigDecimal newLatitude = new BigDecimal("-23.5510");
+    BigDecimal newLongitude = new BigDecimal("-46.6340");
+
+    item.updateLocation(newLatitude, newLongitude);
+
+    assertThat(item.latitude()).isEqualTo(newLatitude);
+    assertThat(item.longitude()).isEqualTo(newLongitude);
+  }
+
+  @Test
+  @DisplayName("throws InvalidQueueStateException when updating location after completion")
+  void shouldThrowInvalidQueueStateExceptionWhenUpdatingLocationAfterCompleted() {
+    PickupQueueItem item = newItem(ProximityRange.CLOSE);
+    item.markAsCompleted();
+
+    assertThatThrownBy(() -> item.updateLocation(new BigDecimal("-23.5505"), new BigDecimal("-46.6333")))
+        .isInstanceOf(InvalidQueueStateException.class)
+        .hasMessage("Fila já finalizada ou cancelada");
+  }
+
+  @Test
+  @DisplayName("throws InvalidQueueStateException when updating location after cancellation")
+  void shouldThrowInvalidQueueStateExceptionWhenUpdatingLocationAfterCancelled() {
+    PickupQueueItem item = newItem(ProximityRange.FAR);
+    item.cancel();
+
+    assertThatThrownBy(() -> item.updateLocation(new BigDecimal("-23.5505"), new BigDecimal("-46.6333")))
+        .isInstanceOf(InvalidQueueStateException.class)
+        .hasMessage("Fila já finalizada ou cancelada");
+  }
+
+  @Test
+  @DisplayName("throws IllegalArgumentException when latitude is null")
+  void shouldThrowIllegalArgumentExceptionWhenLatitudeIsNull() {
+    PickupQueueItem item = newItem(ProximityRange.FAR);
+
+    assertThatThrownBy(() -> item.updateLocation(null, new BigDecimal("-46.6333")))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("Latitude and longitude must not be null");
+  }
+
+  @Test
+  @DisplayName("throws IllegalArgumentException when longitude is null")
+  void shouldThrowIllegalArgumentExceptionWhenLongitudeIsNull() {
+    PickupQueueItem item = newItem(ProximityRange.FAR);
+
+    assertThatThrownBy(() -> item.updateLocation(new BigDecimal("-23.5505"), null))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("Latitude and longitude must not be null");
   }
 
   @Test
