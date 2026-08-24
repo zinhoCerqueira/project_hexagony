@@ -2,7 +2,9 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 CREATE TABLE schools (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(255) NOT NULL
+    name VARCHAR(255) NOT NULL,
+    latitude NUMERIC(9,6),
+    longitude NUMERIC(9,6)
 );
 
 CREATE TABLE classrooms (
@@ -35,8 +37,12 @@ CREATE TABLE pickup_queue (
     school_id UUID NOT NULL REFERENCES schools(id),
     student_id UUID NOT NULL REFERENCES students(id),
     parent_id UUID NOT NULL REFERENCES parents(id),
-    status VARCHAR(50) NOT NULL,
+    journey_status VARCHAR(50) NOT NULL,
+    called BOOLEAN NOT NULL DEFAULT FALSE,
+    current_range VARCHAR(50) NOT NULL,
     estimated_eta_minutes INT,
+    latitude NUMERIC(9,6),
+    longitude NUMERIC(9,6),
     created_at TIMESTAMP WITH TIME ZONE NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL
 );
