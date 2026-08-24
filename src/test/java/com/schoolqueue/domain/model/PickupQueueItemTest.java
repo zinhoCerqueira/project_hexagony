@@ -164,7 +164,8 @@ class PickupQueueItemTest {
     PickupQueueItem item = newItem(ProximityRange.CLOSE);
     item.markAsCompleted();
 
-    assertThatThrownBy(() -> item.updateLocation(new BigDecimal("-23.5505"), new BigDecimal("-46.6333")))
+    assertThatThrownBy(
+            () -> item.updateLocation(new BigDecimal("-23.5505"), new BigDecimal("-46.6333")))
         .isInstanceOf(InvalidQueueStateException.class)
         .hasMessage("Fila já finalizada ou cancelada");
   }
@@ -175,7 +176,8 @@ class PickupQueueItemTest {
     PickupQueueItem item = newItem(ProximityRange.FAR);
     item.cancel();
 
-    assertThatThrownBy(() -> item.updateLocation(new BigDecimal("-23.5505"), new BigDecimal("-46.6333")))
+    assertThatThrownBy(
+            () -> item.updateLocation(new BigDecimal("-23.5505"), new BigDecimal("-46.6333")))
         .isInstanceOf(InvalidQueueStateException.class)
         .hasMessage("Fila já finalizada ou cancelada");
   }
