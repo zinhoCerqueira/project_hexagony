@@ -23,7 +23,7 @@ Fluxo padrão:
 
 1. `git checkout main && git pull`
 2. `git checkout -b feature/<nome>`
-3. Trabalhe e faça commits atômicos.
+3. Trabalhe e faça commits atômicos (sempre pergunte antes de commitar — ver "Convenção de commits").
 4. Apresente o resumo de encerramento da task (ver seção abaixo).
 5. Com permissão explícita do usuário, integre em `main` (merge) e delete a branch de trabalho.
 
@@ -31,11 +31,13 @@ Fluxo padrão:
 
 - Toda task termina com um **resumo do que foi feito**: arquivos criados/alterados,
   decisões relevantes, verificação executada (build/testes) e os commits gerados.
-- O merge para `main` **nunca é automático**: após o resumo, pergunte sempre ao usuário
-  se pode integrar e só execute o merge/delete da branch após aprovação explícita.
+- Commit, merge para `main` e push **nunca são automáticos**: pergunte sempre ao usuário
+  se deve executar cada etapa e só prossiga após aprovação explícita.
 
 ## Convenção de commits
 
+- Commits **nunca são automáticos**: antes de commitar, pergunte ao usuário se deve
+  prosseguir e só execute após aprovação explícita.
 - Mensagens em **português**, descritivas e no estilo do histórico existente.
 - Quando o trabalho atende a uma task do roteiro, inicie a mensagem com o prefixo
   `[Task NNN]`, seguido do verbo/descrição. Ex.: `[Task 10] Setup .env com credenciais centralizadas`.
