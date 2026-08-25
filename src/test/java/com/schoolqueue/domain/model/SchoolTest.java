@@ -89,6 +89,36 @@ class SchoolTest {
   }
 
   @Test
+  @DisplayName("rejects null latitude when updated via setter")
+  void shouldRejectNullLatitudeWhenUpdatedViaSetter() {
+    School school =
+        new School(
+            UUID.randomUUID(),
+            "Escola Municipal",
+            new BigDecimal("-23.5505"),
+            new BigDecimal("-46.6333"));
+
+    assertThatThrownBy(() -> school.setLatitude(null))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("School must have GPS coordinates");
+  }
+
+  @Test
+  @DisplayName("rejects null longitude when updated via setter")
+  void shouldRejectNullLongitudeWhenUpdatedViaSetter() {
+    School school =
+        new School(
+            UUID.randomUUID(),
+            "Escola Municipal",
+            new BigDecimal("-23.5505"),
+            new BigDecimal("-46.6333"));
+
+    assertThatThrownBy(() -> school.setLongitude(null))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("School must have GPS coordinates");
+  }
+
+  @Test
   @DisplayName("changes longitude when updated via setter")
   void shouldChangeLongitudeWhenUpdatedViaSetter() {
     School school =

@@ -36,6 +36,9 @@ public class School {
   }
 
   public void setLatitude(BigDecimal latitude) {
+    if (latitude == null) {
+      throw new IllegalArgumentException("School must have GPS coordinates");
+    }
     this.latitude = latitude;
   }
 
@@ -44,6 +47,9 @@ public class School {
   }
 
   public void setLongitude(BigDecimal longitude) {
+    if (longitude == null) {
+      throw new IllegalArgumentException("School must have GPS coordinates");
+    }
     this.longitude = longitude;
   }
 }
