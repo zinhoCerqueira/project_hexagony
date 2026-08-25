@@ -1,4 +1,4 @@
-# 🚀 Roteiro Prático de Estudos: Sistema de Fila de Saída Escolar (Pickup Queue)
+# 🚀 Roteiro Prático de Estudos: Sistema de Fila de Embarque Escolar (Pickup Queue)
 
 > **Arquitetura Target:** Arquitetura Hexagonal (Ports & Adapters)  
 > **Linguagem & Ecossistema:** Java 21, Spring Boot 3.x, Maven  
@@ -10,10 +10,10 @@
 ## 📋 1. Visão Geral e Contexto do Domínio
 
 ### O Problema
-Nos horários de saída escolar, o trânsito nos arredores das escolas torna-se caótico devido a filas duplas e tempo de espera excessivo dos alunos no portão. 
+No horário de saída das aulas — quando os responsáveis chegam à escola para **buscar (fazer o embarque dos) alunos** —, o trânsito nos arredores torna-se caótico devido a filas duplas e tempo de espera excessivo dos alunos no portão.
 
 ### A Solução
-O **Pickup Queue System** permite que os pais/responsáveis avisem à escola através de uma aplicação que estão a caminho ("Estou chegando") ou chegaram ao perímetro. O sistema posiciona o aluno na **Fila de Saída da Escola**, permitindo que os inspetores/professores na portaria e na sala de aula preparem e encaminhem o aluno com antecedência, otimizando o fluxo e garantindo a segurança.
+O **Pickup Queue System** é um sistema **exclusivamente de embarque**: os pais/responsáveis só usam a aplicação quando vão buscar os alunos na escola. Ao sair de casa, avisam à escola que estão a caminho ("Estou chegando"), compartilhando sua localização; ao chegarem ao perímetro, são identificados pelo range de proximidade. O sistema posiciona o aluno na **Fila de Embarque da Escola**, permitindo que os inspetores/professores na portaria e na sala de aula preparem e encaminhem o aluno com antecedência, otimizando o fluxo e garantindo a segurança. Não há fluxo de desembarque: a entrega da criança na escola não passa pela fila.
 
 ---
 
@@ -56,6 +56,27 @@ A **Arquitetura Hexagonal (Ports & Adapters)** propõe a separação total entre
 - **Driving Adapters (Adaptadores de Entrada):** Componentes que acionam o sistema (ex: Controllers Spring MVC HTTP).
 - **Driven Ports (Portas de Saída):** Interfaces que o Core usa quando precisa interagir com recursos externos (ex: Repositórios, Notificadores).
 - **Driven Adapters (Adaptadores de Saída):** Implementações reais dos recursos externos (ex: Repositórios JPA, adaptadores RabbitMQ, Clientes Redis).
+
+### Portas do Projeto: objetivo e status atual
+
+#### Driving Ports (`domain.ports.in`) — o que o sistema é capaz de fazer
+
+| Port | Comando | Objetivo | Implementação (status) |
+|---|---|---|---|
+| `AnnounceArrivalUseCase` | `AnnounceArrivalCommand(schoolId, studentId, parentId, latitude, longitude, etaMinutes)` | Iniciar o ciclo de embarque: valida duplicidade ativa do aluno, converte ETA → range inicial (`ProximityRange.fromEtaMinutes`), cria o `PickupQueueItem` gravando o GPS inicial do responsável, persiste e notifica. Se o range inicial for CLOSE, o aluno já nasce chamado (`called = true`). | ✅ `AnnounceArrivalService` (Task 25). Adapter HTTP ainda não existe |
+| `UpdateQueueStatusUseCase` | `UpdateQueueStatusCommand(queueItemId, QueueAction)` onde `QueueAction` é sealed interface com `UpdateRange(newRange)`, `MarkAsArrived`, `MarkAsCompleted`, `Cancel` | Aplicar transições de estado na fila (dirigidas por GPS ou pela escola): busca o item por id (`QueueItemNotFoundException` se ausente), delega a transição aos métodos de domínio, persiste e notifica com o status anterior. Exceção de domínio `InvalidQueueStateException` propaga sem tratamento. | ✅ `UpdateQueueStatusService` (Task 26), dispatch exaustivo via record patterns |
+| `FetchActiveQueueUseCase` | `execute(schoolId)` | Consulta da fila de embarque ativa da escola: itens em `[EN_ROUTE, ARRIVED]`, ordenados por `createdAt` ascendente (ordem de chegada); a flag `called` vem junto para a portaria saber quem já foi chamado. Lista possivelmente vazia; somente leitura. | ✅ `FetchActiveQueueService` (Task 27) |
+
+#### Driven Ports (`domain.ports.out`) — do que o Core precisa do mundo externo
+
+| Port | Contrato | Objetivo | Implementação (status) |
+|---|---|---|---|
+| `QueueRepositoryPort` | `save`, `findById`, `findBySchoolIdAndStatusIn`, `findActiveByStudentId` | Persistência da fila. O Core nunca fala com o Postgres diretamente. Peças prontas: entidades JPA (Task 29), `SpringDataQueueRepository` com queries derivadas (Task 30), `QueueEntityMapper` Domain↔Entity (Task 31). Falta o `QueuePersistenceAdapter` que assina este contrato e os ITs com Testcontainers. | 🟡 em construção (Fase 4) |
+| `QueueNotificationPort` | `notifyStudentArrivalAnnounced(item)`, `notifyStatusChanged(item, previousStatus)` | Publicar eventos da fila para consumidores externos (RabbitMQ planejado): anúncio de chegada e mudanças de estado/auto-chamada. Os services já invocam; falta o adapter de mensageria e a config. | ❌ pendente (adapter + RabbitMQConfig) |
+| `SchoolRepositoryPort` | cadastro/consulta de escolas (com GPS) | Suporte cadastral à escola, referência das coordenadas usadas pelo GPS. | ❌ adapter pendente |
+| `StudentRepositoryPort` | cadastro/consulta de alunos | Suporte cadastral ao aluno vinculado à escola/turma. | ❌ adapter pendente |
+
+> **Regra da arquitetura:** os services de `application` dependem apenas destas interfaces. Nenhuma classe do Core/Application importa Spring, JPA ou driver de banco — a troca de tecnologia acontece só nos adapters.
 
 ---
 
@@ -302,7 +323,6 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U queue_user -d school_queue_db"]
       interval: 5s
@@ -343,14 +363,18 @@ volumes:
   pgadmin-data:
 ```
 
-### Script Inicial SQL (`docker/postgres/init.sql`)
+### Schema Versionado via Flyway (`src/main/resources/db/migration/V1__init_schema.sql`)
+
+O schema não é mais criado por script de inicialização do container: quem cria as tabelas é o **Flyway**, executado no startup da aplicação (`spring.flyway.locations: classpath:db/migration`), com `ddl-auto=validate` garantindo que os mapeamentos JPA batem com o DDL. O Compose sobe apenas o Postgres vazio + volume.
 
 ```sql
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 CREATE TABLE schools (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(255) NOT NULL
+    name VARCHAR(255) NOT NULL,
+    latitude NUMERIC(9,6),
+    longitude NUMERIC(9,6)
 );
 
 CREATE TABLE classrooms (
@@ -383,12 +407,18 @@ CREATE TABLE pickup_queue (
     school_id UUID NOT NULL REFERENCES schools(id),
     student_id UUID NOT NULL REFERENCES students(id),
     parent_id UUID NOT NULL REFERENCES parents(id),
-    status VARCHAR(50) NOT NULL,
+    journey_status VARCHAR(50) NOT NULL,
+    called BOOLEAN NOT NULL DEFAULT FALSE,
+    current_range VARCHAR(50) NOT NULL,
     estimated_eta_minutes INT,
+    latitude NUMERIC(9,6),
+    longitude NUMERIC(9,6),
     created_at TIMESTAMP WITH TIME ZONE NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL
 );
 ```
+
+> `pickup_queue` já nasce com o modelo dirigido por GPS/ETA: `journey_status`, flag `called` (auto-chamada), `current_range` e o GPS do responsável (`latitude`/`longitude`, nulos — GPS opcional).
 
 ---
 
@@ -667,6 +697,8 @@ body:json {
     "schoolId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
     "studentId": "c9bf9e57-1685-4c89-bafb-ff5af830be8a",
     "parentId": "d3b07384-d113-424a-4f0b-2232938b2bb4",
+    "latitude": -23.5505,
+    "longitude": -46.6333,
     "etaMinutes": 10
   }
 }
@@ -762,6 +794,14 @@ class AnnounceArrivalServiceTest {
 ## 📍 8. Feature Core: Compartilhamento de GPS que Dirige o Fluxo da Fila
 
 > **Importante:** o GPS deixa de ser uma feature complementar separada e passa a **dirigir o fluxo da fila**. A escola cadastra suas coordenadas (GPS da escola) e o responsável compartilha a localização em tempo real; a distância entre eles define o range de proximidade que controla a chamada do aluno.
+
+### Onde o GPS entra no sistema (estado atual, implementado)
+
+1. **Ponto de referência — GPS da escola:** `School` possui `latitude`/`longitude` (coordenadas do portão/perímetro), persistidas em `schools.latitude/longitude NUMERIC(9,6)` (Tasks 60 e 28). É o âncora para futuros cálculos de distância.
+2. **Entrada do GPS do responsável — no anúncio de chegada:** o `AnnounceArrivalCommand` carrega `latitude`, `longitude` e `etaMinutes`. O `AnnounceArrivalService` grava essas coordenadas no item da fila via `PickupQueueItem.updateLocation(...)` (Task 81); se vierem nulas, o anúncio segue sem GPS (resiliência — Task 25). Ficam persistidas em `pickup_queue.latitude/longitude`.
+3. **Classificação de proximidade — via ETA informado (hoje):** o range inicial é calculado por `ProximityRange.fromEtaMinutes(etaMinutes)` com limites fixos: `≤5 → CLOSE`, `6–15 → MEDIUM`, `>15 → FAR` (Task 59). Ou seja, **hoje o range deriva do tempo declarado pelo responsável, não da distância real** até a escola.
+4. **Auto-chamada:** ao nascer com range CLOSE ou entrar nele depois (`UpdateRange(CLOSE)`), o domínio marca `called = true` automaticamente — é o gatilho que libera a entrega do aluno.
+5. **O que ainda não existe:** cálculo de distância pai↔escola (Haversine ou similar) e sessões contínuas de compartilhamento — são exatamente o que a Fase 7 abaixo planeja, quando as atualizações periódicas de GPS passaram a recalcular o range e dirigir a auto-chamada de fato.
 
 ### O Problema
 O responsável avisa que está indo buscar o aluno, mas a escola não tem como estimar com precisão o momento real da chegada ao portão, gerando chamadas prematuras ou atrasadas do aluno. Sem o GPS, a transição de estados é rígida (`EN_ROUTE → ARRIVED → CALLED`) e depende de ações manuais.
