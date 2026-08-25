@@ -38,9 +38,6 @@ public class PickupQueueEntity {
   @Column(name = "current_range", nullable = false)
   private ProximityRange currentRange;
 
-  @Column(name = "estimated_eta_minutes")
-  private Integer estimatedEtaMinutes;
-
   @Column(precision = 9, scale = 6)
   private BigDecimal latitude;
 
@@ -63,7 +60,6 @@ public class PickupQueueEntity {
       QueueStatus journeyStatus,
       boolean called,
       ProximityRange currentRange,
-      Integer estimatedEtaMinutes,
       BigDecimal latitude,
       BigDecimal longitude,
       Instant createdAt,
@@ -75,7 +71,6 @@ public class PickupQueueEntity {
     this.journeyStatus = journeyStatus;
     this.called = called;
     this.currentRange = currentRange;
-    this.estimatedEtaMinutes = estimatedEtaMinutes;
     this.latitude = latitude;
     this.longitude = longitude;
     this.createdAt = createdAt;
@@ -132,14 +127,6 @@ public class PickupQueueEntity {
 
   public void setCurrentRange(ProximityRange currentRange) {
     this.currentRange = currentRange;
-  }
-
-  public Integer getEstimatedEtaMinutes() {
-    return estimatedEtaMinutes;
-  }
-
-  public void setEstimatedEtaMinutes(Integer estimatedEtaMinutes) {
-    this.estimatedEtaMinutes = estimatedEtaMinutes;
   }
 
   public BigDecimal getLatitude() {

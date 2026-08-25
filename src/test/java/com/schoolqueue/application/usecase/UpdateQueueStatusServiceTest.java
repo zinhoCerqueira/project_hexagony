@@ -38,7 +38,7 @@ class UpdateQueueStatusServiceTest {
 
   private PickupQueueItem newItem(ProximityRange initialRange) {
     return new PickupQueueItem(
-        null, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 10, initialRange);
+        null, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), initialRange);
   }
 
   @Test

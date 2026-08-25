@@ -10,6 +10,9 @@ public class School {
   private BigDecimal longitude;
 
   public School(UUID id, String name, BigDecimal latitude, BigDecimal longitude) {
+    if (latitude == null || longitude == null) {
+      throw new IllegalArgumentException("School must have GPS coordinates");
+    }
     this.id = id != null ? id : UUID.randomUUID();
     this.name = name;
     this.latitude = latitude;

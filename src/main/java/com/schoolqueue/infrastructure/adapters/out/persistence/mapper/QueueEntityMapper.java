@@ -16,7 +16,6 @@ public final class QueueEntityMapper {
         item.journeyStatus(),
         item.called(),
         item.currentRange(),
-        item.estimatedEtaMinutes(),
         item.latitude(),
         item.longitude(),
         item.createdAt(),
@@ -34,7 +33,6 @@ public final class QueueEntityMapper {
         entity.getCurrentRange(),
         entity.getLatitude(),
         entity.getLongitude(),
-        entity.getEstimatedEtaMinutes(),
         entity.getCreatedAt(),
         entity.getUpdatedAt());
   }

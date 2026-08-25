@@ -14,7 +14,7 @@ class PickupQueueItemTest {
 
   private PickupQueueItem newItem(ProximityRange initialRange) {
     return new PickupQueueItem(
-        null, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 10, initialRange);
+        null, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), initialRange);
   }
 
   @Test
@@ -26,13 +26,12 @@ class PickupQueueItemTest {
     UUID parentId = UUID.randomUUID();
 
     PickupQueueItem item =
-        new PickupQueueItem(id, schoolId, studentId, parentId, 10, ProximityRange.FAR);
+        new PickupQueueItem(id, schoolId, studentId, parentId, ProximityRange.FAR);
 
     assertThat(item.id()).isEqualTo(id);
     assertThat(item.schoolId()).isEqualTo(schoolId);
     assertThat(item.studentId()).isEqualTo(studentId);
     assertThat(item.parentId()).isEqualTo(parentId);
-    assertThat(item.estimatedEtaMinutes()).isEqualTo(10);
     assertThat(item.journeyStatus()).isEqualTo(QueueStatus.EN_ROUTE);
     assertThat(item.called()).isFalse();
     assertThat(item.currentRange()).isEqualTo(ProximityRange.FAR);
@@ -90,7 +89,6 @@ class PickupQueueItemTest {
             ProximityRange.CLOSE,
             new BigDecimal("-23.5505"),
             new BigDecimal("-46.6333"),
-            10,
             createdAt,
             updatedAt);
 
@@ -103,7 +101,6 @@ class PickupQueueItemTest {
     assertThat(item.currentRange()).isEqualTo(ProximityRange.CLOSE);
     assertThat(item.latitude()).isEqualByComparingTo(new BigDecimal("-23.5505"));
     assertThat(item.longitude()).isEqualByComparingTo(new BigDecimal("-46.6333"));
-    assertThat(item.estimatedEtaMinutes()).isEqualTo(10);
     assertThat(item.createdAt()).isEqualTo(createdAt);
     assertThat(item.updatedAt()).isEqualTo(updatedAt);
   }

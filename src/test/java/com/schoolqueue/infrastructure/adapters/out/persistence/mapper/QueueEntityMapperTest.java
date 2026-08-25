@@ -25,7 +25,6 @@ class QueueEntityMapperTest {
         ProximityRange.CLOSE,
         new BigDecimal("-23.5505"),
         new BigDecimal("-46.6333"),
-        10,
         Instant.parse("2026-08-24T12:00:00Z"),
         Instant.parse("2026-08-24T12:05:00Z"));
   }
@@ -39,7 +38,6 @@ class QueueEntityMapperTest {
         QueueStatus.ARRIVED,
         false,
         ProximityRange.MEDIUM,
-        null,
         null,
         null,
         Instant.parse("2026-08-24T13:00:00Z"),
@@ -62,7 +60,6 @@ class QueueEntityMapperTest {
     assertThat(entity.getCurrentRange()).isEqualTo(item.currentRange());
     assertThat(entity.getLatitude()).isEqualByComparingTo(item.latitude());
     assertThat(entity.getLongitude()).isEqualByComparingTo(item.longitude());
-    assertThat(entity.getEstimatedEtaMinutes()).isEqualTo(item.estimatedEtaMinutes());
     assertThat(entity.getCreatedAt()).isEqualTo(item.createdAt());
     assertThat(entity.getUpdatedAt()).isEqualTo(item.updatedAt());
   }
@@ -83,7 +80,6 @@ class QueueEntityMapperTest {
     assertThat(item.currentRange()).isEqualTo(ProximityRange.MEDIUM);
     assertThat(item.latitude()).isNull();
     assertThat(item.longitude()).isNull();
-    assertThat(item.estimatedEtaMinutes()).isNull();
     assertThat(item.createdAt()).isEqualTo(entity.getCreatedAt());
     assertThat(item.updatedAt()).isEqualTo(entity.getUpdatedAt());
   }
@@ -104,7 +100,6 @@ class QueueEntityMapperTest {
     assertThat(result.currentRange()).isEqualTo(item.currentRange());
     assertThat(result.latitude()).isEqualByComparingTo(item.latitude());
     assertThat(result.longitude()).isEqualByComparingTo(item.longitude());
-    assertThat(result.estimatedEtaMinutes()).isEqualTo(item.estimatedEtaMinutes());
     assertThat(result.createdAt()).isEqualTo(item.createdAt());
     assertThat(result.updatedAt()).isEqualTo(item.updatedAt());
   }
@@ -119,10 +114,8 @@ class QueueEntityMapperTest {
 
     assertThat(entity.getLatitude()).isNull();
     assertThat(entity.getLongitude()).isNull();
-    assertThat(entity.getEstimatedEtaMinutes()).isNull();
     assertThat(result.latitude()).isNull();
     assertThat(result.longitude()).isNull();
-    assertThat(result.estimatedEtaMinutes()).isNull();
   }
 
   private PickupQueueItem newItemWithoutOptionals() {
@@ -134,7 +127,6 @@ class QueueEntityMapperTest {
         QueueStatus.EN_ROUTE,
         false,
         ProximityRange.FAR,
-        null,
         null,
         null,
         Instant.parse("2026-08-24T14:00:00Z"),

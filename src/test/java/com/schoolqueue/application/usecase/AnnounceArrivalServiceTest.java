@@ -8,12 +8,15 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.schoolqueue.domain.exception.SchoolNotFoundException;
 import com.schoolqueue.domain.model.PickupQueueItem;
 import com.schoolqueue.domain.model.ProximityRange;
 import com.schoolqueue.domain.model.QueueStatus;
+import com.schoolqueue.domain.model.School;
 import com.schoolqueue.domain.ports.in.AnnounceArrivalUseCase.AnnounceArrivalCommand;
 import com.schoolqueue.domain.ports.out.QueueNotificationPort;
 import com.schoolqueue.domain.ports.out.QueueRepositoryPort;
+import com.schoolqueue.domain.ports.out.SchoolRepositoryPort;
 import java.math.BigDecimal;
 import java.util.Optional;
 import java.util.UUID;
@@ -27,28 +30,54 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class AnnounceArrivalServiceTest {
 
+  private static final BigDecimal SCHOOL_LAT = new BigDecimal("-23.550520");
+  private static final BigDecimal SCHOOL_LNG = new BigDecimal("-46.633308");
+  private static final BigDecimal PARENT_LAT_CLOSE = new BigDecimal("-23.554120");
+  private static final BigDecimal PARENT_LAT_MEDIUM = new BigDecimal("-23.559520");
+  private static final BigDecimal PARENT_LAT_FAR = new BigDecimal("-23.577520");
+
   @Mock QueueRepositoryPort queueRepositoryPort;
 
   @Mock QueueNotificationPort notificationPort;
 
+  @Mock SchoolRepositoryPort schoolRepositoryPort;
+
   private AnnounceArrivalCommand newCommand(BigDecimal latitude, BigDecimal longitude) {
     return new AnnounceArrivalCommand(
-        UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), latitude, longitude, 10);
+        UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), latitude, longitude);
+  }
+
+  private School schoolWithGps() {
+    return new School(UUID.randomUUID(), "Escola Municipal", SCHOOL_LAT, SCHOOL_LNG);
+  }
+
+  private void stubSchoolFound(AnnounceArrivalCommand command, School school) {
+    when(schoolRepositoryPort.findById(command.schoolId())).thenReturn(Optional.of(school));
+  }
+
+  private void stubNoActiveItem(AnnounceArrivalCommand command) {
+    when(queueRepositoryPort.findActiveByStudentId(command.studentId()))
+        .thenReturn(Optional.empty());
+  }
+
+  private void stubSaveReturnsSameItem() {
+    when(queueRepositoryPort.save(any(PickupQueueItem.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
+  }
+
+  private AnnounceArrivalService newService() {
+    return new AnnounceArrivalService(queueRepositoryPort, notificationPort, schoolRepositoryPort);
   }
 
   @Test
   @DisplayName("saves and notifies a new EN_ROUTE item when no active item exists")
   void shouldSaveAndNotifyEnRouteItemWhenNoActiveItemExists() {
-    AnnounceArrivalCommand command =
-        newCommand(new BigDecimal("-23.5505"), new BigDecimal("-46.6333"));
-    when(queueRepositoryPort.findActiveByStudentId(command.studentId()))
-        .thenReturn(Optional.empty());
-    when(queueRepositoryPort.save(any(PickupQueueItem.class)))
-        .thenAnswer(invocation -> invocation.getArgument(0));
-    AnnounceArrivalService service =
-        new AnnounceArrivalService(queueRepositoryPort, notificationPort);
+    AnnounceArrivalCommand command = newCommand(PARENT_LAT_MEDIUM, SCHOOL_LNG);
+    stubNoActiveItem(command);
+    stubSaveReturnsSameItem();
+    stubSchoolFound(command, schoolWithGps());
 
-    PickupQueueItem result = service.execute(command);
+    PickupQueueItem result = newService().execute(command);
 
     ArgumentCaptor<PickupQueueItem> captor = ArgumentCaptor.forClass(PickupQueueItem.class);
     verify(queueRepositoryPort).save(captor.capture());
@@ -58,18 +87,16 @@ class AnnounceArrivalServiceTest {
     assertThat(captor.getValue().schoolId()).isEqualTo(command.schoolId());
     assertThat(captor.getValue().studentId()).isEqualTo(command.studentId());
     assertThat(captor.getValue().parentId()).isEqualTo(command.parentId());
-    assertThat(captor.getValue().estimatedEtaMinutes()).isEqualTo(10);
     assertThat(captor.getValue().currentRange()).isEqualTo(ProximityRange.MEDIUM);
-    assertThat(captor.getValue().latitude()).isEqualByComparingTo(new BigDecimal("-23.5505"));
-    assertThat(captor.getValue().longitude()).isEqualByComparingTo(new BigDecimal("-46.6333"));
+    assertThat(captor.getValue().latitude()).isEqualByComparingTo(PARENT_LAT_MEDIUM);
+    assertThat(captor.getValue().longitude()).isEqualByComparingTo(SCHOOL_LNG);
     verify(notificationPort).notifyStudentArrivalAnnounced(result);
   }
 
   @Test
   @DisplayName("throws IllegalStateException when the student already has an active item")
   void shouldThrowIllegalStateExceptionWhenStudentAlreadyHasActiveItem() {
-    AnnounceArrivalCommand command =
-        newCommand(new BigDecimal("-23.5505"), new BigDecimal("-46.6333"));
+    AnnounceArrivalCommand command = newCommand(PARENT_LAT_MEDIUM, SCHOOL_LNG);
     when(queueRepositoryPort.findActiveByStudentId(command.studentId()))
         .thenReturn(
             Optional.of(
@@ -78,33 +105,26 @@ class AnnounceArrivalServiceTest {
                     UUID.randomUUID(),
                     UUID.randomUUID(),
                     UUID.randomUUID(),
-                    10,
                     ProximityRange.FAR)));
-    AnnounceArrivalService service =
-        new AnnounceArrivalService(queueRepositoryPort, notificationPort);
 
-    assertThatThrownBy(() -> service.execute(command))
+    assertThatThrownBy(() -> newService().execute(command))
         .isInstanceOf(IllegalStateException.class)
         .hasMessage("Já existe um aviso de saída ativo para este aluno.");
 
+    verify(schoolRepositoryPort, never()).findById(any(UUID.class));
     verify(queueRepositoryPort, never()).save(any(PickupQueueItem.class));
     verifyNoInteractions(notificationPort);
   }
 
   @Test
-  @DisplayName("starts as called when the eta maps to the CLOSE range")
-  void shouldStartCalledWhenInitialRangeIsClose() {
-    AnnounceArrivalCommand command =
-        new AnnounceArrivalCommand(
-            UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), null, null, 5);
-    when(queueRepositoryPort.findActiveByStudentId(command.studentId()))
-        .thenReturn(Optional.empty());
-    when(queueRepositoryPort.save(any(PickupQueueItem.class)))
-        .thenAnswer(invocation -> invocation.getArgument(0));
-    AnnounceArrivalService service =
-        new AnnounceArrivalService(queueRepositoryPort, notificationPort);
+  @DisplayName("starts as called when the parent is within the CLOSE range")
+  void shouldStartCalledWhenParentIsWithinCloseRange() {
+    AnnounceArrivalCommand command = newCommand(PARENT_LAT_CLOSE, SCHOOL_LNG);
+    stubNoActiveItem(command);
+    stubSaveReturnsSameItem();
+    stubSchoolFound(command, schoolWithGps());
 
-    PickupQueueItem result = service.execute(command);
+    PickupQueueItem result = newService().execute(command);
 
     assertThat(result.currentRange()).isEqualTo(ProximityRange.CLOSE);
     assertThat(result.called()).isTrue();
@@ -112,21 +132,46 @@ class AnnounceArrivalServiceTest {
   }
 
   @Test
-  @DisplayName("persists null location when the command has no GPS coordinates")
-  void shouldPersistNullLocationWhenCommandHasNoGps() {
+  @DisplayName("classifies a distant parent as FAR without calling the student")
+  void shouldClassifyDistantParentAsFarWithoutCalling() {
+    AnnounceArrivalCommand command = newCommand(PARENT_LAT_FAR, SCHOOL_LNG);
+    stubNoActiveItem(command);
+    stubSaveReturnsSameItem();
+    stubSchoolFound(command, schoolWithGps());
+
+    PickupQueueItem result = newService().execute(command);
+
+    assertThat(result.currentRange()).isEqualTo(ProximityRange.FAR);
+    assertThat(result.called()).isFalse();
+  }
+
+  @Test
+  @DisplayName("throws SchoolNotFoundException when the school does not exist")
+  void shouldThrowSchoolNotFoundExceptionWhenSchoolDoesNotExist() {
+    AnnounceArrivalCommand command = newCommand(PARENT_LAT_MEDIUM, SCHOOL_LNG);
+    stubNoActiveItem(command);
+    when(schoolRepositoryPort.findById(command.schoolId())).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> newService().execute(command))
+        .isInstanceOf(SchoolNotFoundException.class)
+        .hasMessage("Escola não encontrada");
+
+    verify(queueRepositoryPort, never()).save(any(PickupQueueItem.class));
+    verifyNoInteractions(notificationPort);
+  }
+
+  @Test
+  @DisplayName("throws IllegalArgumentException when the parent GPS is missing")
+  void shouldThrowIllegalArgumentExceptionWhenParentGpsIsMissing() {
     AnnounceArrivalCommand command = newCommand(null, null);
-    when(queueRepositoryPort.findActiveByStudentId(command.studentId()))
-        .thenReturn(Optional.empty());
-    when(queueRepositoryPort.save(any(PickupQueueItem.class)))
-        .thenAnswer(invocation -> invocation.getArgument(0));
-    AnnounceArrivalService service =
-        new AnnounceArrivalService(queueRepositoryPort, notificationPort);
+    stubNoActiveItem(command);
 
-    PickupQueueItem result = service.execute(command);
+    assertThatThrownBy(() -> newService().execute(command))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("Latitude and longitude must not be null");
 
-    assertThat(result.latitude()).isNull();
-    assertThat(result.longitude()).isNull();
-    verify(queueRepositoryPort).save(any(PickupQueueItem.class));
-    verify(notificationPort).notifyStudentArrivalAnnounced(result);
+    verify(schoolRepositoryPort, never()).findById(any(UUID.class));
+    verify(queueRepositoryPort, never()).save(any(PickupQueueItem.class));
+    verifyNoInteractions(notificationPort);
   }
 }

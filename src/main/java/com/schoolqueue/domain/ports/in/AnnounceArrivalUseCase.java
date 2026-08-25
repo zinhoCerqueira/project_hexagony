@@ -9,10 +9,5 @@ public interface AnnounceArrivalUseCase {
   PickupQueueItem execute(AnnounceArrivalCommand command);
 
   record AnnounceArrivalCommand(
-      UUID schoolId,
-      UUID studentId,
-      UUID parentId,
-      BigDecimal latitude,
-      BigDecimal longitude,
-      Integer etaMinutes) {}
+      UUID schoolId, UUID studentId, UUID parentId, BigDecimal latitude, BigDecimal longitude) {}
 }

@@ -24,7 +24,7 @@ class FetchActiveQueueServiceTest {
 
   private PickupQueueItem newItem() {
     return new PickupQueueItem(
-        null, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 10, ProximityRange.FAR);
+        null, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), ProximityRange.FAR);
   }
 
   private List<PickupQueueItem> newItemsInOrder(int count) throws InterruptedException {

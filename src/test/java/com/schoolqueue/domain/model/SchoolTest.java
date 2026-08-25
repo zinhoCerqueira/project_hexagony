@@ -1,6 +1,7 @@
 package com.schoolqueue.domain.model;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -71,6 +72,20 @@ class SchoolTest {
     school.setLatitude(new BigDecimal("-22.9068"));
 
     assertThat(school.latitude()).isEqualTo(new BigDecimal("-22.9068"));
+  }
+
+  @Test
+  @DisplayName("rejects construction without GPS coordinates")
+  void shouldRejectConstructionWithoutGpsCoordinates() {
+    UUID id = UUID.randomUUID();
+
+    assertThatThrownBy(() -> new School(id, "Escola Municipal", null, new BigDecimal("-46.6333")))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("School must have GPS coordinates");
+
+    assertThatThrownBy(() -> new School(id, "Escola Municipal", new BigDecimal("-23.5505"), null))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("School must have GPS coordinates");
   }
 
   @Test

@@ -63,7 +63,7 @@ A **Arquitetura Hexagonal (Ports & Adapters)** propõe a separação total entre
 
 | Port | Comando | Objetivo | Implementação (status) |
 |---|---|---|---|
-| `AnnounceArrivalUseCase` | `AnnounceArrivalCommand(schoolId, studentId, parentId, latitude, longitude, etaMinutes)` | Iniciar o ciclo de embarque: valida duplicidade ativa do aluno, converte ETA → range inicial (`ProximityRange.fromEtaMinutes`), cria o `PickupQueueItem` gravando o GPS inicial do responsável, persiste e notifica. Se o range inicial for CLOSE, o aluno já nasce chamado (`called = true`). | ✅ `AnnounceArrivalService` (Task 25). Adapter HTTP ainda não existe |
+| `AnnounceArrivalUseCase` | `AnnounceArrivalCommand(schoolId, studentId, parentId, latitude, longitude)` | Iniciar o ciclo de embarque: valida duplicidade ativa do aluno e GPS obrigatório, busca a escola (`SchoolRepositoryPort`), calcula o range inicial pela distância real Haversine (`ProximityRange.fromCoordinates`), cria o `PickupQueueItem` gravando o GPS do responsável, persiste e notifica. Se o range inicial for CLOSE, o aluno já nasce chamado (`called = true`). | ✅ `AnnounceArrivalService`. Adapter HTTP ainda não existe |
 | `UpdateQueueStatusUseCase` | `UpdateQueueStatusCommand(queueItemId, QueueAction)` onde `QueueAction` é sealed interface com `UpdateRange(newRange)`, `MarkAsArrived`, `MarkAsCompleted`, `Cancel` | Aplicar transições de estado na fila (dirigidas por GPS ou pela escola): busca o item por id (`QueueItemNotFoundException` se ausente), delega a transição aos métodos de domínio, persiste e notifica com o status anterior. Exceção de domínio `InvalidQueueStateException` propaga sem tratamento. | ✅ `UpdateQueueStatusService` (Task 26), dispatch exaustivo via record patterns |
 | `FetchActiveQueueUseCase` | `execute(schoolId)` | Consulta da fila de embarque ativa da escola: itens em `[EN_ROUTE, ARRIVED]`, ordenados por `createdAt` ascendente (ordem de chegada); a flag `called` vem junto para a portaria saber quem já foi chamado. Lista possivelmente vazia; somente leitura. | ✅ `FetchActiveQueueService` (Task 27) |
 
@@ -238,12 +238,11 @@ school-pickup-system/
               |        PickupQueueItem       |
               |------------------------------|
               | id: UUID                     |
-              | journeyStatus: QueueStatus   |
-              | called: boolean              |
-              | currentRange: ProximityRange |
-              | estimatedEtaMinutes          |
-              | latitude/longitude (pai, GPS)|
-              | created/updatedAt            |
+               | journeyStatus: QueueStatus   |
+               | called: boolean              |
+               | currentRange: ProximityRange |
+               | latitude/longitude (pai, GPS)|
+               | created/updatedAt            |
               +------------------------------+
 ```
 
@@ -295,12 +294,12 @@ O fluxo da fila é **dirigido por GPS**: o responsável anuncia a chegada já co
 
 > O `CALLED` **não é mais um estado do enum**: vira a flag booleana `called` na entidade, permitindo combinações naturais como "EN_ROUTE + CALLED" ou "ARRIVED + CALLED".
 
-**`ProximityRange` (3 tiers, dirigidos por GPS/ETA):**
-- **FAR:** ETA > 15 minutos.
-- **MEDIUM:** 5 < ETA ≤ 15 minutos.
-- **CLOSE:** ETA ≤ 5 minutos.
+**`ProximityRange` (3 tiers, dirigidos por distância real):**
+- **FAR:** distância > 2 km do GPS da escola.
+- **MEDIUM:** 0,5 < distância ≤ 2 km.
+- **CLOSE:** distância ≤ 0,5 km.
 
-> Limites configuráveis (via `application.yml`). Ao entrar no range **CLOSE**, o sistema marca `called = true` automaticamente.
+> Calculados no Core via Haversine (`ProximityRange.fromCoordinates(...)`) entre o GPS do responsável e o da escola. Limiares fixos (`fromDistanceKm`), configuráveis via `application.yml` em task futura. Ao entrar no range **CLOSE**, o sistema marca `called = true` automaticamente. O `etaMinutes` foi removido do comando e do schema.
 
 ---
 
@@ -445,12 +444,11 @@ public class PickupQueueItem {
     private ProximityRange currentRange;
     private BigDecimal latitude;   // GPS do pai
     private BigDecimal longitude;  // GPS do pai
-    private Integer estimatedEtaMinutes;
     private final Instant createdAt;
     private Instant updatedAt;
 
     public PickupQueueItem(UUID id, UUID schoolId, UUID studentId, UUID parentId,
-                           Integer estimatedEtaMinutes, ProximityRange initialRange) {
+                           ProximityRange initialRange) {
         this.id = id != null ? id : UUID.randomUUID();
         this.schoolId = schoolId;
         this.studentId = studentId;
@@ -458,7 +456,6 @@ public class PickupQueueItem {
         this.journeyStatus = QueueStatus.EN_ROUTE;
         this.called = initialRange == ProximityRange.CLOSE;
         this.currentRange = initialRange;
-        this.estimatedEtaMinutes = estimatedEtaMinutes;
         this.createdAt = Instant.now();
         this.updatedAt = Instant.now();
     }
@@ -539,9 +536,8 @@ public interface AnnounceArrivalUseCase {
         UUID schoolId,
         UUID studentId,
         UUID parentId,
-        BigDecimal latitude,   // GPS inicial do pai
-        BigDecimal longitude,  // GPS inicial do pai
-        Integer etaMinutes
+        BigDecimal latitude,   // GPS do pai (obrigatório)
+        BigDecimal longitude   // GPS do pai (obrigatório)
     ) {}
 }
 ```
@@ -552,19 +548,25 @@ public interface AnnounceArrivalUseCase {
 // File: src/main/java/com/schoolqueue/application/usecase/AnnounceArrivalService.java
 package com.schoolqueue.application.usecase;
 
+import com.schoolqueue.domain.exception.SchoolNotFoundException;
 import com.schoolqueue.domain.model.PickupQueueItem;
+import com.schoolqueue.domain.model.ProximityRange;
+import com.schoolqueue.domain.model.School;
 import com.schoolqueue.domain.ports.in.AnnounceArrivalUseCase;
 import com.schoolqueue.domain.ports.out.QueueNotificationPort;
 import com.schoolqueue.domain.ports.out.QueueRepositoryPort;
+import com.schoolqueue.domain.ports.out.SchoolRepositoryPort;
 
 public class AnnounceArrivalService implements AnnounceArrivalUseCase {
 
     private final QueueRepositoryPort queueRepositoryPort;
     private final QueueNotificationPort notificationPort;
+    private final SchoolRepositoryPort schoolRepositoryPort;
 
-    public AnnounceArrivalService(QueueRepositoryPort queueRepositoryPort, QueueNotificationPort notificationPort) {
+    public AnnounceArrivalService(QueueRepositoryPort queueRepositoryPort, QueueNotificationPort notificationPort, SchoolRepositoryPort schoolRepositoryPort) {
         this.queueRepositoryPort = queueRepositoryPort;
         this.notificationPort = notificationPort;
+        this.schoolRepositoryPort = schoolRepositoryPort;
     }
 
     @Override
@@ -575,17 +577,24 @@ public class AnnounceArrivalService implements AnnounceArrivalUseCase {
                 throw new IllegalStateException("Já existe um aviso de saída ativo para este aluno.");
             });
 
-        // Calcula o range inicial com base no ETA/distância informada
-        ProximityRange initialRange = ProximityRange.fromEtaMinutes(command.etaMinutes());
+        if (command.latitude() == null || command.longitude() == null) {
+            throw new IllegalArgumentException("Latitude and longitude must not be null");
+        }
+
+        // Busca a escola e calcula o range inicial pela distância real (Haversine)
+        School school = schoolRepositoryPort.findById(command.schoolId())
+            .orElseThrow(() -> new SchoolNotFoundException("Escola não encontrada"));
+        ProximityRange initialRange = ProximityRange.fromCoordinates(
+            command.latitude(), command.longitude(), school.latitude(), school.longitude());
 
         PickupQueueItem newItem = new PickupQueueItem(
             null,
             command.schoolId(),
             command.studentId(),
             command.parentId(),
-            command.etaMinutes(),
             initialRange
         );
+        newItem.updateLocation(command.latitude(), command.longitude());
 
         PickupQueueItem savedItem = queueRepositoryPort.save(newItem);
         notificationPort.notifyStudentArrivalAnnounced(savedItem);
@@ -651,8 +660,7 @@ public class PickupQueueController {
             request.studentId(),
             request.parentId(),
             request.latitude(),
-            request.longitude(),
-            request.etaMinutes()
+            request.longitude()
         );
         
         PickupQueueItem result = announceArrivalUseCase.execute(command);
@@ -698,8 +706,7 @@ body:json {
     "studentId": "c9bf9e57-1685-4c89-bafb-ff5af830be8a",
     "parentId": "d3b07384-d113-424a-4f0b-2232938b2bb4",
     "latitude": -23.5505,
-    "longitude": -46.6333,
-    "etaMinutes": 10
+    "longitude": -46.6333
   }
 }
 
@@ -797,11 +804,11 @@ class AnnounceArrivalServiceTest {
 
 ### Onde o GPS entra no sistema (estado atual, implementado)
 
-1. **Ponto de referência — GPS da escola:** `School` possui `latitude`/`longitude` (coordenadas do portão/perímetro), persistidas em `schools.latitude/longitude NUMERIC(9,6)` (Tasks 60 e 28). É o âncora para futuros cálculos de distância.
-2. **Entrada do GPS do responsável — no anúncio de chegada:** o `AnnounceArrivalCommand` carrega `latitude`, `longitude` e `etaMinutes`. O `AnnounceArrivalService` grava essas coordenadas no item da fila via `PickupQueueItem.updateLocation(...)` (Task 81); se vierem nulas, o anúncio segue sem GPS (resiliência — Task 25). Ficam persistidas em `pickup_queue.latitude/longitude`.
-3. **Classificação de proximidade — via ETA informado (hoje):** o range inicial é calculado por `ProximityRange.fromEtaMinutes(etaMinutes)` com limites fixos: `≤5 → CLOSE`, `6–15 → MEDIUM`, `>15 → FAR` (Task 59). Ou seja, **hoje o range deriva do tempo declarado pelo responsável, não da distância real** até a escola.
+1. **Ponto de referência — GPS da escola (obrigatório):** `School` exige `latitude`/`longitude` no construtor (`IllegalArgumentException` se ausentes) e as colunas em `schools` são `NOT NULL`. É a âncora do cálculo de distância.
+2. **Entrada do GPS do responsável — no anúncio de chegada:** o `AnnounceArrivalCommand` carrega apenas `latitude` e `longitude` (o `etaMinutes` foi removido). O GPS é obrigatório: coordenadas nulas bloqueiam o anúncio com `IllegalArgumentException`. As coordenadas são gravadas no item via `PickupQueueItem.updateLocation(...)` e persistidas em `pickup_queue.latitude/longitude`.
+3. **Classificação de proximidade — distância real (hoje):** o `AnnounceArrivalService` busca a escola via `SchoolRepositoryPort` e calcula `ProximityRange.fromCoordinates(...)`: `≤ 0,5 km → CLOSE`, `0,5–2 km → MEDIUM`, `> 2 km → FAR`.
 4. **Auto-chamada:** ao nascer com range CLOSE ou entrar nele depois (`UpdateRange(CLOSE)`), o domínio marca `called = true` automaticamente — é o gatilho que libera a entrega do aluno.
-5. **O que ainda não existe:** cálculo de distância pai↔escola (Haversine ou similar) e sessões contínuas de compartilhamento — são exatamente o que a Fase 7 abaixo planeja, quando as atualizações periódicas de GPS passaram a recalcular o range e dirigir a auto-chamada de fato.
+5. **O que ainda não existe:** sessões contínuas de compartilhamento com recálculo periódico do range a cada atualização de posição — é a Fase 7 abaixo, que dirigirá a auto-chamada em tempo real (no anúncio, a distância já é real).
 
 ### O Problema
 O responsável avisa que está indo buscar o aluno, mas a escola não tem como estimar com precisão o momento real da chegada ao portão, gerando chamadas prematuras ou atrasadas do aluno. Sem o GPS, a transição de estados é rígida (`EN_ROUTE → ARRIVED → CALLED`) e depende de ações manuais.
@@ -821,7 +828,7 @@ Quando o responsável notifica que está indo buscar (ação do `AnnounceArrival
 - **MEDIUM:** 5 < ETA ≤ 15 minutos.
 - **CLOSE:** ETA ≤ 5 minutos (dispara `called = true` automaticamente).
 
-> Método utilitário `ProximityRange.fromEtaMinutes(Integer eta)` converte ETA → range. Limites configuráveis via `application.yml`.
+> Método utilitário `ProximityRange.fromCoordinates(...)` (Haversine) converte coordenadas pai↔escola em range, com limiares fixos em `fromDistanceKm`. Configuráveis via `application.yml`.
 
 **Estados da Sessão de Compartilhamento (`LocationSharingStatus`):**
 - **ACTIVE:** Compartilhamento em andamento (item da fila ativo).
@@ -940,7 +947,7 @@ Siga a ordem sequencial abaixo para construir o projeto do zero:
   - [ ] Rodar `mvn verify` com o gate JaCoCo (linha >= 80%, ramo >= 70%) e validar o relatório de cobertura.
 - [ ] **Fase 7: Compartilhamento de GPS (agora dirige o fluxo da fila)**
   - [ ] Adicionar latitude/longitude à entidade `School` e à migração da tabela `schools`.
-  - [ ] Criar o enum `ProximityRange` (FAR/MEDIUM/CLOSE) com `fromEtaMinutes(...)` e a entidade pura `LocationSharingSession` (sessão dura o ciclo completo da fila).
+  - [ ] Criar o enum `ProximityRange` (FAR/MEDIUM/CLOSE) com `fromCoordinates(...)`/Haversine e a entidade pura `LocationSharingSession` (sessão dura o ciclo completo da fila).
   - [ ] Escrever testes unitários (JUnit 5) para o cálculo de range e o encerramento da sessão.
   - [ ] Criar as portas `StartLocationSharingUseCase`, `UpdateParentLocationUseCase`, `FetchSharedLocationUseCase` e `LocationSharingRepositoryPort`.
   - [ ] Escrever testes TDD dos services de GPS (Mockito).

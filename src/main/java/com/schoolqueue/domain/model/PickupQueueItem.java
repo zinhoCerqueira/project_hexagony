@@ -15,17 +15,11 @@ public class PickupQueueItem {
   private ProximityRange currentRange;
   private BigDecimal latitude;
   private BigDecimal longitude;
-  private Integer estimatedEtaMinutes;
   private final Instant createdAt;
   private Instant updatedAt;
 
   public PickupQueueItem(
-      UUID id,
-      UUID schoolId,
-      UUID studentId,
-      UUID parentId,
-      Integer estimatedEtaMinutes,
-      ProximityRange initialRange) {
+      UUID id, UUID schoolId, UUID studentId, UUID parentId, ProximityRange initialRange) {
     this.id = id != null ? id : UUID.randomUUID();
     this.schoolId = schoolId;
     this.studentId = studentId;
@@ -33,7 +27,6 @@ public class PickupQueueItem {
     this.journeyStatus = QueueStatus.EN_ROUTE;
     this.called = initialRange == ProximityRange.CLOSE;
     this.currentRange = initialRange;
-    this.estimatedEtaMinutes = estimatedEtaMinutes;
     this.createdAt = Instant.now();
     this.updatedAt = Instant.now();
   }
@@ -48,7 +41,6 @@ public class PickupQueueItem {
       ProximityRange currentRange,
       BigDecimal latitude,
       BigDecimal longitude,
-      Integer estimatedEtaMinutes,
       Instant createdAt,
       Instant updatedAt) {
     this.id = id;
@@ -60,7 +52,6 @@ public class PickupQueueItem {
     this.currentRange = currentRange;
     this.latitude = latitude;
     this.longitude = longitude;
-    this.estimatedEtaMinutes = estimatedEtaMinutes;
     this.createdAt = createdAt;
     this.updatedAt = updatedAt;
   }
@@ -75,7 +66,6 @@ public class PickupQueueItem {
       ProximityRange currentRange,
       BigDecimal latitude,
       BigDecimal longitude,
-      Integer estimatedEtaMinutes,
       Instant createdAt,
       Instant updatedAt) {
     return new PickupQueueItem(
@@ -88,7 +78,6 @@ public class PickupQueueItem {
         currentRange,
         latitude,
         longitude,
-        estimatedEtaMinutes,
         createdAt,
         updatedAt);
   }
@@ -127,10 +116,6 @@ public class PickupQueueItem {
 
   public BigDecimal longitude() {
     return longitude;
-  }
-
-  public Integer estimatedEtaMinutes() {
-    return estimatedEtaMinutes;
   }
 
   public Instant createdAt() {
