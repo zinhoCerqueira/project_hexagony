@@ -38,6 +38,61 @@ public class PickupQueueItem {
     this.updatedAt = Instant.now();
   }
 
+  private PickupQueueItem(
+      UUID id,
+      UUID schoolId,
+      UUID studentId,
+      UUID parentId,
+      QueueStatus journeyStatus,
+      boolean called,
+      ProximityRange currentRange,
+      BigDecimal latitude,
+      BigDecimal longitude,
+      Integer estimatedEtaMinutes,
+      Instant createdAt,
+      Instant updatedAt) {
+    this.id = id;
+    this.schoolId = schoolId;
+    this.studentId = studentId;
+    this.parentId = parentId;
+    this.journeyStatus = journeyStatus;
+    this.called = called;
+    this.currentRange = currentRange;
+    this.latitude = latitude;
+    this.longitude = longitude;
+    this.estimatedEtaMinutes = estimatedEtaMinutes;
+    this.createdAt = createdAt;
+    this.updatedAt = updatedAt;
+  }
+
+  public static PickupQueueItem reconstitute(
+      UUID id,
+      UUID schoolId,
+      UUID studentId,
+      UUID parentId,
+      QueueStatus journeyStatus,
+      boolean called,
+      ProximityRange currentRange,
+      BigDecimal latitude,
+      BigDecimal longitude,
+      Integer estimatedEtaMinutes,
+      Instant createdAt,
+      Instant updatedAt) {
+    return new PickupQueueItem(
+        id,
+        schoolId,
+        studentId,
+        parentId,
+        journeyStatus,
+        called,
+        currentRange,
+        latitude,
+        longitude,
+        estimatedEtaMinutes,
+        createdAt,
+        updatedAt);
+  }
+
   public UUID id() {
     return id;
   }

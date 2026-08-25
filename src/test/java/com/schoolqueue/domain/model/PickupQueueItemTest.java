@@ -70,6 +70,45 @@ class PickupQueueItemTest {
   }
 
   @Test
+  @DisplayName("reconstitutes an item with the exact persisted state")
+  void shouldReconstituteItemWithExactPersistedState() {
+    UUID id = UUID.randomUUID();
+    UUID schoolId = UUID.randomUUID();
+    UUID studentId = UUID.randomUUID();
+    UUID parentId = UUID.randomUUID();
+    Instant createdAt = Instant.parse("2026-08-24T12:00:00Z");
+    Instant updatedAt = Instant.parse("2026-08-24T12:05:00Z");
+
+    PickupQueueItem item =
+        PickupQueueItem.reconstitute(
+            id,
+            schoolId,
+            studentId,
+            parentId,
+            QueueStatus.COMPLETED,
+            true,
+            ProximityRange.CLOSE,
+            new BigDecimal("-23.5505"),
+            new BigDecimal("-46.6333"),
+            10,
+            createdAt,
+            updatedAt);
+
+    assertThat(item.id()).isEqualTo(id);
+    assertThat(item.schoolId()).isEqualTo(schoolId);
+    assertThat(item.studentId()).isEqualTo(studentId);
+    assertThat(item.parentId()).isEqualTo(parentId);
+    assertThat(item.journeyStatus()).isEqualTo(QueueStatus.COMPLETED);
+    assertThat(item.called()).isTrue();
+    assertThat(item.currentRange()).isEqualTo(ProximityRange.CLOSE);
+    assertThat(item.latitude()).isEqualByComparingTo(new BigDecimal("-23.5505"));
+    assertThat(item.longitude()).isEqualByComparingTo(new BigDecimal("-46.6333"));
+    assertThat(item.estimatedEtaMinutes()).isEqualTo(10);
+    assertThat(item.createdAt()).isEqualTo(createdAt);
+    assertThat(item.updatedAt()).isEqualTo(updatedAt);
+  }
+
+  @Test
   @DisplayName("updates the current range and bumps updatedAt")
   void shouldUpdateRangeAndBumpUpdatedAt() {
     PickupQueueItem item = newItem(ProximityRange.FAR);
