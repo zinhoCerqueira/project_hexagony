@@ -5,7 +5,7 @@ versionamento e a organização do trabalho devem ser conduzidos a partir de ago
 
 ## Visão geral
 
-- **Projeto:** school-pickup-system — API de fila de embarque/desembarque escolar.
+- **Projeto:** school-pickup-system — API de fila de embarque escolar (somente busca dos alunos pelos responsáveis; não há fluxo de desembarque).
 - **Arquitetura:** Hexagonal (Ports & Adapters), Java 21, Spring Boot 3.x, Maven.
 - **Infra local:** Docker Compose (PostgreSQL + RabbitMQ), credenciais em `.env` (raiz, não commitado).
 - **Roteiro:** as tarefas são numeradas em `roteiro_desenvolvimento.md` (ex.: Task 10, Task 11).
