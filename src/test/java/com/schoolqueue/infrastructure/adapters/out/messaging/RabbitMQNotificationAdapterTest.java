@@ -11,6 +11,7 @@ import com.schoolqueue.domain.model.PickupQueueItem;
 import com.schoolqueue.domain.model.ProximityRange;
 import com.schoolqueue.domain.model.QueueStatus;
 import com.schoolqueue.infrastructure.adapters.out.messaging.dto.ArrivalAnnouncedEvent;
+import com.schoolqueue.infrastructure.adapters.out.messaging.dto.StatusChangedEvent;
 import com.schoolqueue.infrastructure.config.RabbitMQConfig;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -32,14 +33,14 @@ class RabbitMQNotificationAdapterTest {
 
   @InjectMocks private RabbitMQNotificationAdapter adapter;
 
-  private PickupQueueItem newItem() {
+  private PickupQueueItem newItemWithStatus(QueueStatus status, boolean called) {
     return PickupQueueItem.reconstitute(
         UUID.randomUUID(),
         UUID.randomUUID(),
         UUID.randomUUID(),
         UUID.randomUUID(),
-        QueueStatus.EN_ROUTE,
-        false,
+        status,
+        called,
         ProximityRange.MEDIUM,
         new BigDecimal("-23.5505"),
         new BigDecimal("-46.6333"),
@@ -52,7 +53,7 @@ class RabbitMQNotificationAdapterTest {
       "notifyStudentArrivalAnnounced publishes to school.queue.events with queue.arrival.announced"
           + " routing key")
   void shouldPublishArrivalAnnouncedToConfiguredExchangeAndRoutingKey() {
-    PickupQueueItem item = newItem();
+    PickupQueueItem item = newItemWithStatus(QueueStatus.EN_ROUTE, false);
     Instant before = Instant.now();
 
     adapter.notifyStudentArrivalAnnounced(item);
@@ -78,8 +79,8 @@ class RabbitMQNotificationAdapterTest {
 
   @Test
   @DisplayName("notifyStudentArrivalAnnounced propagates AmqpException from the broker")
-  void shouldPropagateAmqpExceptionWhenBrokerFails() {
-    PickupQueueItem item = newItem();
+  void shouldPropagateAmqpExceptionWhenBrokerFailsOnArrival() {
+    PickupQueueItem item = newItemWithStatus(QueueStatus.EN_ROUTE, false);
     doThrow(new AmqpException("broker offline"))
         .when(rabbitTemplate)
         .convertAndSend(
@@ -93,12 +94,47 @@ class RabbitMQNotificationAdapterTest {
   }
 
   @Test
-  @DisplayName("notifyStatusChanged is not implemented yet and throws (tracked by LAC08)")
-  void shouldThrowUnsupportedOperationExceptionOnStatusChanged() {
-    PickupQueueItem item = newItem();
+  @DisplayName(
+      "notifyStatusChanged publishes to school.queue.events with queue.status.changed routing"
+          + " key, including previous and new status")
+  void shouldPublishStatusChangedToConfiguredExchangeAndRoutingKey() {
+    PickupQueueItem item = newItemWithStatus(QueueStatus.ARRIVED, true);
+    Instant before = Instant.now();
+
+    adapter.notifyStatusChanged(item, QueueStatus.EN_ROUTE);
+
+    ArgumentCaptor<StatusChangedEvent> captor = ArgumentCaptor.forClass(StatusChangedEvent.class);
+    verify(rabbitTemplate)
+        .convertAndSend(
+            eq(RabbitMQConfig.EXCHANGE_NAME),
+            eq(RabbitMQConfig.ROUTING_KEY_STATUS_CHANGED),
+            captor.capture());
+    Instant after = Instant.now();
+
+    StatusChangedEvent event = captor.getValue();
+    assertThat(event.queueItemId()).isEqualTo(item.id());
+    assertThat(event.studentId()).isEqualTo(item.studentId());
+    assertThat(event.schoolId()).isEqualTo(item.schoolId());
+    assertThat(event.previousStatus()).isEqualTo(QueueStatus.EN_ROUTE);
+    assertThat(event.newStatus()).isEqualTo(QueueStatus.ARRIVED);
+    assertThat(event.called()).isTrue();
+    assertThat(event.currentRange()).isEqualTo(ProximityRange.MEDIUM);
+    assertThat(event.occurredAt()).isBetween(before, after);
+  }
+
+  @Test
+  @DisplayName("notifyStatusChanged propagates AmqpException from the broker")
+  void shouldPropagateAmqpExceptionWhenBrokerFailsOnStatusChange() {
+    PickupQueueItem item = newItemWithStatus(QueueStatus.ARRIVED, true);
+    doThrow(new AmqpException("broker offline"))
+        .when(rabbitTemplate)
+        .convertAndSend(
+            eq(RabbitMQConfig.EXCHANGE_NAME),
+            eq(RabbitMQConfig.ROUTING_KEY_STATUS_CHANGED),
+            any(StatusChangedEvent.class));
 
     assertThatThrownBy(() -> adapter.notifyStatusChanged(item, QueueStatus.EN_ROUTE))
-        .isInstanceOf(UnsupportedOperationException.class)
-        .hasMessageContaining("LAC08");
+        .isInstanceOf(AmqpException.class)
+        .hasMessageContaining("broker offline");
   }
 }

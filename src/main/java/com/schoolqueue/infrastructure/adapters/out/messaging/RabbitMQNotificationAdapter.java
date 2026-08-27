@@ -4,6 +4,7 @@ import com.schoolqueue.domain.model.PickupQueueItem;
 import com.schoolqueue.domain.model.QueueStatus;
 import com.schoolqueue.domain.ports.out.QueueNotificationPort;
 import com.schoolqueue.infrastructure.adapters.out.messaging.dto.ArrivalAnnouncedEvent;
+import com.schoolqueue.infrastructure.adapters.out.messaging.dto.StatusChangedEvent;
 import com.schoolqueue.infrastructure.config.RabbitMQConfig;
 import java.time.Instant;
 import org.slf4j.Logger;
@@ -42,7 +43,24 @@ public class RabbitMQNotificationAdapter implements QueueNotificationPort {
 
   @Override
   public void notifyStatusChanged(PickupQueueItem item, QueueStatus previousStatus) {
-    throw new UnsupportedOperationException(
-        "notifyStatusChanged is not implemented yet in RabbitMQNotificationAdapter (see LAC08)");
+    StatusChangedEvent event =
+        new StatusChangedEvent(
+            item.id(),
+            item.studentId(),
+            item.schoolId(),
+            previousStatus,
+            item.journeyStatus(),
+            item.called(),
+            item.currentRange(),
+            Instant.now());
+
+    rabbitTemplate.convertAndSend(
+        RabbitMQConfig.EXCHANGE_NAME, RabbitMQConfig.ROUTING_KEY_STATUS_CHANGED, event);
+
+    LOG.info(
+        "Published status.changed for queueItemId={} previousStatus={} newStatus={}",
+        item.id(),
+        previousStatus,
+        item.journeyStatus());
   }
 }
