@@ -1173,3 +1173,37 @@ O card [36] em si não existe mais nem no roteiro nem no histórico de
 commits, então o status "já entregue" fica registrado via este card no
 backlog + mensagem do commit `Registra API01 como já entregue (LAC11)`.
 #rest #arch
+
+### LAC12 — Handlers 404 no `GlobalExceptionHandler` (`QueueItemNotFoundException`, `SchoolNotFoundException`, `StudentNotFoundException`)
+
+A `API02` cobre os 2 handlers exigidos pelo critério
+(`InvalidQueueStateException` → 409 e `IllegalStateException` → 400) em
+`src/main/java/com/schoolqueue/infrastructure/adapters/in/web/GlobalExceptionHandler.java`.
+Ficou fora do escopo deliberado: mapear `QueueItemNotFoundException`,
+`SchoolNotFoundException` e `StudentNotFoundException` (todas em
+`src/main/java/com/schoolqueue/domain/exception/`) para **404 Not Found**.
+Hoje elas propagam e o Spring retorna **500 Internal Server Error**,
+mascarando a causa real e quebrando a expectativa do consumidor da API.
+
+Solução: adicionar 3 handlers no `GlobalExceptionHandler` (um por exceção)
+retornando `ResponseEntity.status(HttpStatus.NOT_FOUND).body(...)` com o
+mesmo `ValidationErrorResponse`/`FieldError` que já existem. Cobertura no
+`PickupQueueControllerWebTest` (PATCH com `queueItemId` inexistente deve
+retornar 404) e no `SchoolControllerWebTest` (POST com GPS em escola que
+não existe). #rest #backend
+
+### LAC13 — `BeanConfiguration` mistura `@Bean` explícito e component scan
+
+`src/main/java/com/schoolqueue/infrastructure/config/BeanConfiguration.java`
+registra `RegisterSchoolUseCase` como `@Bean`, mas os 3 use cases da fila
+(`AnnounceArrivalService`, `UpdateQueueStatusService`,
+`FetchActiveQueueService`) estavam sem `@Service`/`@Component` até a
+`API02` — a injeção só funcionava em runtime porque o app não os usava
+(não havia controller). Com a `API02` o `@Service` foi adicionado nos 3
+para o `@WebMvcTest` montar o contexto, mas a inconsistência permanece:
+`RegisterSchoolService` continua manual, os outros são auto-discovered.
+
+Solução: decidir uma convenção (recomendado: todos via component scan com
+`@Service`; remover o `@Bean` do `BeanConfiguration` e apagar a classe
+se ficar vazia) e aplicar. Ganha: menos código, padrão único, mais
+consistência. #arch #backend

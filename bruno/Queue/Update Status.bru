@@ -1,0 +1,45 @@
+meta {
+  name: Update Queue Item Status
+  type: http
+  seq: 3
+}
+
+patch {
+  url: http://localhost:8080/api/v1/queue/{{queueItemId}}/status
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "action": "MARK_AS_COMPLETED"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.journeyStatus: eq COMPLETED
+}
+
+docs {
+  Aplica uma transição de estado no item da fila. Implementado pelo
+  `PickupQueueController` (item `API02`) usando `UpdateQueueStatusUseCase`.
+
+  Discriminator `action` (string, obrigatório, `@NotBlank`):
+  - `MARK_AS_ARRIVED` — marca o item como `ARRIVED` (somente a partir de `EN_ROUTE`).
+  - `MARK_AS_COMPLETED` — marca o item como `COMPLETED` (somente se `called = true`).
+  - `CANCEL` — cancela a entrega (qualquer estado, exceto `COMPLETED`).
+  - `UPDATE_RANGE` — atualiza o `currentRange`; exige `newRange` no body.
+
+  `newRange` (ProximityRange, obrigatório só para `UPDATE_RANGE`):
+  `FAR` | `MEDIUM` | `CLOSE`. Ao entrar em `CLOSE`, o adapter
+  `RabbitMQNotificationAdapter` registra `called = true` no payload publicado.
+
+  Erros:
+  - 400 quando `action` é vazio/ausente, desconhecido, ou quando
+    `UPDATE_RANGE` vem sem `newRange` (handler `IllegalStateException`).
+  - 409 quando a transição é inválida no domínio
+    (`InvalidQueueStateException`).
+  - 404 quando o `queueItemId` não existe (LAC12; ainda não coberto por
+    handler — ver backlog).
+}
