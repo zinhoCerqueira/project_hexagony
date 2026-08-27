@@ -1081,3 +1081,16 @@ unidades e decidir, para cada uma, qual é a chave natural única (nome,
 documento, par lat/lng, etc.) e onde aplicá-la (constraint no schema
 Flyway + validação no domínio). Inclui o `DataIntegrityViolationException`
 no handler para 409 quando a constraint pegar. #backend #db #arch
+
+### LAC07 — Revisar durabilidade/TTL/DLQ de `queue.notifications` em produção
+
+Decisão adotada na `MSG00` (`src/main/java/com/schoolqueue/infrastructure/config/RabbitMQConfig.java`):
+exchange `school.queue.events` (topic, durable=true) e fila `queue.notifications`
+(durable=true, **sem** `x-message-ttl`, **sem** DLQ, **sem** quorum queue).
+Bindings: `queue.arrival.announced` e `queue.status.changed`. Adequado para
+dev/local, mas em produção vale revisar: TTL para evitar backlog infinito de
+eventos não consumidos; DLQ + política de retry para mensagens
+poison/descartadas; quorum queue (vs. classic) para HA; `max-length`/`overflow`
+para capar a fila; consumer-side `prefetch`, `ack` manual e idempotência.
+Definir quem é o consumer (escola, portaria, app do responsável?) e qual a
+janela aceitável de perda zero vs. at-least-once. #messaging #arch #backend
