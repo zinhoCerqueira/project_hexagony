@@ -1,0 +1,15 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "school-queue-db",
+      "Group": "Servers",
+      "Host": "school_queue_db",
+      "Port": 5432,
+      "MaintenanceDB": "school_queue_db",
+      "Username": "queue_user",
+      "Password": "queue_password",
+      "SSLMode": "prefer",
+      "Comment": "Postgres do projeto school-pickup-system (compose: school_queue_db)"
+    }
+  }
+}
