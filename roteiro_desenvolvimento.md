@@ -1108,3 +1108,25 @@ update de estado da fila — lançava `UnsupportedOperationException("... see LA
 - Adapter reusa a routing key `queue.status.changed` já declarada na `RabbitMQConfig` (MSG00).
 - `RabbitMQNotificationAdapterTest` cobre publicação correta e propagação de `AmqpException` para `notifyStatusChanged`.
 - LAC08 permanece no backlog como referência/histórico (decisão do usuário).
+
+### LAC09 — Implementar `PickupQueueController` (Fase 5 do roteiro)
+
+O `SchoolController` (`src/main/java/com/schoolqueue/infrastructure/adapters/in/web/SchoolController.java`)
+é o único controller da aplicação. As três coleções Bruno já alinhadas com o
+domínio — `Queue/Announce Arrival.bru` (anunciar chegada, payload agora
+alinhado ao `AnnounceArrivalCommand`), `Queue/List Active Queue.bru`
+(`FetchActiveQueueUseCase.execute(schoolId)`) e `Queue/Update Status` (a
+criar) — retornam 404 no estado atual porque o `PickupQueueController` ainda
+não existe. Pendente:
+
+- `POST /api/v1/queue/announce` → `AnnounceArrivalUseCase`
+- `GET /api/v1/queue/active?schoolId=...` → `FetchActiveQueueUseCase`
+- `PATCH /api/v1/queue/{queueItemId}/status` (ou similar) → `UpdateQueueStatusUseCase`
+  com `QueueAction` (sealed: `UpdateRange`/`MarkAsArrived`/`MarkAsCompleted`/`Cancel`)
+
+Decidir também: DTOs de request/response (`AnnounceArrivalRequest`,
+`QueueItemResponse`, `UpdateStatusRequest`), `QueueDtoMapper`, e
+`@WebMvcTest` cobrindo os caminhos feliz + 400 (payload inválido) + 404
+(item não encontrado) + 409 (transição inválida → `InvalidQueueStateException`).
+Os `*ServiceTest` já cobrem a lógica; o controller precisa ser exercitado
+via MockMvc com `GlobalExceptionHandler` real. #rest #arch #backend

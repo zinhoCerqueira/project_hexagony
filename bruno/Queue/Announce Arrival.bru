@@ -15,11 +15,26 @@ body:json {
     "schoolId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
     "studentId": "c9bf9e57-1685-4c89-bafb-ff5af830be8a",
     "parentId": "d3b07384-d113-424a-4f3b-2232938b2bb4",
-    "etaMinutes": 10
+    "latitude": -23.550520,
+    "longitude": -46.633308
   }
 }
 
 assert {
   res.status: eq 200
   res.body.status: eq EN_ROUTE
+}
+
+docs {
+  Contrato alinhado a `AnnounceArrivalUseCase.AnnounceArrivalCommand`
+  (`src/main/java/com/schoolqueue/domain/ports/in/AnnounceArrivalUseCase.java`):
+  `schoolId`, `studentId`, `parentId`, `latitude`, `longitude` (BigDecimal).
+  GPS é obrigatório. O item nasce com `journeyStatus = EN_ROUTE` e o
+  `currentRange` é calculado por `ProximityRange.fromCoordinates(...)` no
+  service.
+
+  Pendente: o `PickupQueueController` (roteiro, item "Fase 5: Adaptadores
+  REST") ainda não foi implementado — este endpoint retorna 404 no estado
+  atual do código. Quando entrar, esta coleção passa a ser executável ponta
+  a ponta.
 }
