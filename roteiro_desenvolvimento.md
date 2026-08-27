@@ -1094,3 +1094,16 @@ poison/descartadas; quorum queue (vs. classic) para HA; `max-length`/`overflow`
 para capar a fila; consumer-side `prefetch`, `ack` manual e idempotência.
 Definir quem é o consumer (escola, portaria, app do responsável?) e qual a
 janela aceitável de perda zero vs. at-least-once. #messaging #arch #backend
+
+### LAC08 — Implementar `notifyStatusChanged` no `RabbitMQNotificationAdapter`
+
+A `MSG01` (`src/main/java/com/schoolqueue/infrastructure/adapters/out/messaging/RabbitMQNotificationAdapter.java`)
+cobre apenas `notifyStudentArrivalAnnounced`. O segundo método do
+`QueueNotificationPort` — invocado por `UpdateQueueStatusService:42` em todo
+update de estado da fila — lança `UnsupportedOperationException("... see LAC08")`
+até ser coberto. Solução: DTO `StatusChangedEvent(itemId, previousStatus,
+newStatus, currentRange, called, occurredAt)`, reusar a routing key
+`queue.status.changed` já declarada na `RabbitMQConfig`, e atualizar o adapter
++ teste unitário. Avaliar também se a transição dispara múltiplos eventos
+(entrar/sair de `CLOSE`, auto-chamada) ou se um único evento por `update`
+resolve. #messaging #backend
