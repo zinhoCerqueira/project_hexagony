@@ -60,6 +60,52 @@ Fluxo padrão:
 - Rodar build/testes Maven quando relevante: `mvn test` (sem wrapper `mvnw`; usar o Maven do sistema).
 - Validar o Compose antes de subir: `docker compose --project-directory . -f docker/docker-compose.yml config`.
 
+## Persistência e volumes Docker
+
+O `docker/docker-compose.yml` declara dois volumes nomeados que carregam
+**todo o estado do projeto**:
+
+| Volume | Conteúdo | Consequência se removido |
+|---|---|---|
+| `project_hexagony_pgdata` | Cluster Postgres (`/var/lib/postgresql/data`) — schema Flyway + dados de `schools`, `students`, `pickup_queue`, etc. | Postgres reinicia vazio, Flyway reaplica a `V1` e **todos os dados somem**. |
+| `project_hexagony_pgadmin-data` | `pgadmin4.db` (lista de servers, usuários, preferências) | pgAdmin reseta; o server `school-queue-db` precisa ser reimportado via `docker/pgadmin/servers.json` (já acontece se o arquivo estiver versionado). |
+
+**Comandos que APAGAM dados sem aviso:**
+
+- `docker compose down -v` — remove **todos** os volumes nomeados do projeto. **Nunca usar** em ambiente de estudo sem backup.
+- `docker volume rm <nome>` / `docker volume prune` / `docker system prune --volumes` — apagam volumes órfãos. Volumes viram "órfãos" quando nenhum container os referencia (ex.: depois de um `down` simples).
+- Reset de fábrica do Docker Desktop, atualização/reinstalação do Docker, ou falha de disco — podem descartar `/var/lib/docker/volumes` inteiro.
+
+**Boas práticas (sempre que for mexer em infra):**
+
+1. **Backup lógico antes de qualquer coisa arriscada** (gera um `.sql` que pode ser commitado ou versionado fora do repo):
+   ```bash
+   docker exec school_queue_db \
+     pg_dump -U queue_user -d school_queue_db > backup-$(date +%Y%m%d-%H%M).sql
+   ```
+   Restaurar:
+   ```bash
+   cat backup-YYYYMMDD-HHMM.sql | docker exec -i school_queue_db \
+     psql -U queue_user -d school_queue_db
+   ```
+2. **Backup binário do volume inteiro** (mais pesado; copia fiel do cluster):
+   ```bash
+   docker run --rm -v project_hexagony_pgdata:/from -v $(pwd):/to alpine \
+     tar czf /to/pgdata-backup-$(date +%Y%m%d).tar.gz -C /from .
+   ```
+3. **Sempre conferir antes de `prune`**: `docker volume prune --dry-run` lista o que sairia.
+4. **Não confiar em `restart: always`** — o `docker-compose.yml` não o declara. Container que cai e ninguém reinicia deixa o volume órfão e exposto ao `prune`.
+5. **Versão do `docker/pgadmin/servers.json`** garante que o server `school-queue-db` volta na próxima subida mesmo se o `pgadmin4.db` for perdido. **Não** confie nele para o `pgdata` — esse é só `pg_dump`.
+
+**Onde encontrar o que está montado no Postgres:**
+
+- `docker exec school_queue_db psql -U queue_user -d school_queue_db -c "\dn+"`
+  lista schemas; `\dt public.*` lista tabelas.
+- `SELECT datname, numbackends, xact_commit, tup_inserted FROM pg_stat_database;`
+  mostra atividade acumulada por banco.
+- `SELECT * FROM pg_stat_activity WHERE datname='school_queue_db';`
+  lista conexões ativas (HikariCP do Spring, pgAdmin Dashboard, psql, etc.).
+
 ## Backlog de lacunas encontradas
 
 - Ao longo do desenvolvimento, sempre que o agente identificar uma lacuna relevante

@@ -362,6 +362,70 @@ volumes:
   pgadmin-data:
 ```
 
+### Persistência, volumes e backup do banco
+
+> O estado do projeto mora em **dois volumes Docker nomeados**:
+> `pgdata` (cluster Postgres com schema + dados) e `pgadmin-data`
+> (configuração do pgAdmin). Perder o `pgdata` significa perder
+> **todas** as escolas, alunos, pais e filas cadastradas. Esta subseção
+> documenta o que é sensível e como se proteger.
+
+**O que cada volume guarda:**
+
+| Volume | Conteúdo | O que acontece se for removido |
+|---|---|---|
+| `pgdata` | Cluster Postgres (`/var/lib/postgresql/data`) — schema Flyway + dados de `schools`, `students`, `pickup_queue`, etc. | Postgres sobe vazio, Flyway reaplica `V1__init_schema.sql`, **todos os dados somem**. |
+| `pgadmin-data` | `pgadmin4.db` (servers cadastrados, preferências) | pgAdmin reseta; o server `school-queue-db` reaparece via `docker/pgadmin/servers.json` (montado pelo Compose). |
+
+**Comandos que apagam dados sem aviso:**
+
+- `docker compose down -v` — remove **todos** os volumes nomeados do projeto. **Nunca usar** em ambiente de estudo sem backup.
+- `docker volume rm <nome>` / `docker volume prune` / `docker system prune --volumes` — apagam volumes órfãos (sem container referenciando).
+- Reset de fábrica do Docker Desktop, reinstalação/atualização do Docker, ou falha de disco — podem descartar `/var/lib/docker/volumes` inteiro.
+- O `docker-compose.yml` **não** declara `restart: always` em nenhum serviço. Se um container cair e ninguém reiniciar, o volume fica órfão e exposto ao próximo `prune`.
+
+**Backups recomendados antes de qualquer mexida arriscada em infra:**
+
+```bash
+# 1. Backup lógico (gera um .sql versionável)
+docker exec school_queue_db \
+  pg_dump -U queue_user -d school_queue_db > backup-$(date +%Y%m%d-%H%M).sql
+
+# Restaurar:
+cat backup-YYYYMMDD-HHMM.sql | docker exec -i school_queue_db \
+  psql -U queue_user -d school_queue_db
+
+# 2. Backup binário do volume inteiro (mais pesado; copia fiel do cluster)
+docker run --rm -v project_hexagony_pgdata:/from -v $(pwd):/to alpine \
+  tar czf /to/pgdata-backup-$(date +%Y%m%d).tar.gz -C /from .
+```
+
+**Antes de qualquer `prune`, conferir a lista:**
+
+```bash
+docker volume prune --dry-run
+```
+
+**Inspeção rápida do banco (sem entrar no pgAdmin):**
+
+```bash
+# schemas e tabelas
+docker exec school_queue_db psql -U queue_user -d school_queue_db -c "\dn+"
+docker exec school_queue_db psql -U queue_user -d school_queue_db -c "\dt public.*"
+
+# atividade acumulada por banco
+docker exec school_queue_db psql -U queue_user -d school_queue_db -c \
+  "SELECT datname, numbackends, xact_commit, tup_inserted FROM pg_stat_database;"
+
+# conexões ativas (HikariCP, pgAdmin, psql, etc.)
+docker exec school_queue_db psql -U queue_user -d school_queue_db -c \
+  "SELECT pid, application_name, state, query_start FROM pg_stat_activity WHERE datname='school_queue_db';"
+```
+
+> O `docker/pgadmin/servers.json` versionado garante que o server
+> `school-queue-db` reaparece no pgAdmin mesmo se o `pgadmin-data` for
+> perdido. Isso **não** vale para o `pgdata` — esse é só `pg_dump`.
+
 ### Schema Versionado via Flyway (`src/main/resources/db/migration/V1__init_schema.sql`)
 
 O schema não é mais criado por script de inicialização do container: quem cria as tabelas é o **Flyway**, executado no startup da aplicação (`spring.flyway.locations: classpath:db/migration`), com `ddl-auto=validate` garantindo que os mapeamentos JPA batem com o DDL. O Compose sobe apenas o Postgres vazio + volume.
