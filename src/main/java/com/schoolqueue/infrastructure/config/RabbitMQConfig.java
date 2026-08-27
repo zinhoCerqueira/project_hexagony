@@ -4,6 +4,8 @@ import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.TopicExchange;
+import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
+import org.springframework.boot.autoconfigure.amqp.RabbitTemplateCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -39,5 +41,16 @@ public class RabbitMQConfig {
     return BindingBuilder.bind(queueNotifications)
         .to(schoolQueueEventsExchange)
         .with(ROUTING_KEY_STATUS_CHANGED);
+  }
+
+  @Bean
+  public Jackson2JsonMessageConverter jsonMessageConverter() {
+    return new Jackson2JsonMessageConverter();
+  }
+
+  @Bean
+  public RabbitTemplateCustomizer rabbitTemplateJsonCustomizer(
+      Jackson2JsonMessageConverter jsonMessageConverter) {
+    return template -> template.setMessageConverter(jsonMessageConverter);
   }
 }
