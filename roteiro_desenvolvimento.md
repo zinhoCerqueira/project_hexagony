@@ -959,3 +959,48 @@ Siga a ordem sequencial abaixo para construir o projeto do zero:
   - [ ] Expor os endpoints REST de iniciar compartilhamento, atualizar localização (recalcula range) e consultar sessões ativas.
   - [ ] Criar `LocationSharingFlowIT` (`@SpringBootTest` + Testcontainers) para o fluxo E2E do GPS.
   - [ ] Testar via Bruno: Criar Escola com GPS -> Anunciar Chegada -> Atualizar GPS -> Validar auto-chamada ao entrar no range CLOSE -> Finalizar.
+
+---
+
+## 🐞 10. Backlog de Lacunas Encontradas
+
+> Cards acumulados pelo agente ao longo do desenvolvimento. Não são resolvidos
+> sem aprovação explícita; podem virar tasks do roteiro ou permanecer como
+> referência. O agente avisa periodicamente sobre os pendentes.
+
+### LAC01 — Convenções de prefixo de commit divergem entre AGENTS.md, roteiro e histórico
+
+`AGENTS.md` documenta apenas o prefixo `[Task NNN]`, mas o histórico já usa
+`[GPS00]`, `[GPS01]`, `[FILA01]`, `[API03]`, etc., e a nova seção do AGENTS.md
+passa a tratar `APIxx` e `FILAxx` como prefixos de primeira classe. #docs #arch
+
+### LAC02 — `AGENTS.md` ainda não referencia prefixos `[APIxx]`, `[FILAxx]`, `[GPSxx]`
+
+A seção "Convenção de commits" do AGENTS.md segue com apenas o exemplo
+`[Task NNN]`, então um agente novo lendo só esse arquivo não saberia prefixar
+commits das fases que já rodam (Fase 4/5/7). Solução: alinhar a seção com o
+histórico real e com a nova regra do backlog. #docs
+
+### LAC03 — `School` valida GPS só no construtor, `SchoolEntity` aceita colunas nulas
+
+A entidade de domínio `School` lança `IllegalArgumentException` sem GPS, mas a
+`SchoolEntity` JPA (`SchoolEntity.java:18-23`) tem apenas `@Column(precision,
+scale)`, sem `nullable = false`. Um `setLatitude(null)` no domínio já é
+bloqueado, mas a coluna no banco permitiria `null` se algo bypassasse o
+domínio (ex.: seed SQL, outro adapter). Alinhar com `nullable = false` (ou
+comentar a decisão de manter domínio como única guarda). #db #arch
+
+### LAC04 — `RegisterSchoolService` não detecta escola duplicada por nome
+
+`SchoolRepositoryPort` expõe só `findById` e `save`. Dois POSTs com o mesmo
+`name` criam duas escolas distintas. O domínio não trata isso explicitamente;
+depende de política de produto. Se for regra de negócio, adicionar
+`findByName` ao port, validar no service e retornar 409 via
+`GlobalExceptionHandler` (que hoje só trata `MethodArgumentNotValidException`).
+#backend #rest #arch
+
+### LAC05 — `RegisterSchoolServiceTest` cobre só o caso feliz
+
+Há 1 teste no service contra 5 cenários no controller. Falta cobrir:
+service recebendo latitude ou longitude nula (deve propagar
+`IllegalArgumentException` vinda de `School`). #test

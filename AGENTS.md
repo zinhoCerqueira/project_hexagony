@@ -59,3 +59,21 @@ Fluxo padrão:
 
 - Rodar build/testes Maven quando relevante: `mvn test` (sem wrapper `mvnw`; usar o Maven do sistema).
 - Validar o Compose antes de subir: `docker compose --project-directory . -f docker/docker-compose.yml config`.
+
+## Backlog de lacunas encontradas
+
+- Ao longo do desenvolvimento, sempre que o agente identificar uma lacuna relevante
+  (inconsistência entre código/roteiro, falta de teste, desvio de padrão, etc.),
+  registrar um **card** no final de `roteiro_desenvolvimento.md`, na seção
+  `## 🐞 10. Backlog de Lacunas Encontradas`.
+- Cada card segue o estilo dos cards de roteiro: **título curto**, **hashtags**
+  no final (`#backend`, `#rest`, `#test`, `#db`, `#docs`, `#arch`, …) e o
+  **problema/lacuna** descrita em 1–3 linhas. Quando fizer sentido, incluir
+  referência a arquivos com `file:line` e o que a solução envolveria.
+- Os cards **acumulam**: o agente não os resolve sozinho, apenas registra. Não há
+  remoção sem o usuário pedir. Quando o card virar uma task do roteiro, ele pode
+  permanecer como referência ou ser marcado como resolvido (a critério do
+  usuário).
+- Periodicamente, o agente **avisa o usuário** sobre os cards pendentes no
+  backlog (ex.: ao final de uma task, ao retomar o trabalho, ou quando ficarem
+  muitos). O usuário decide o que priorizar.
