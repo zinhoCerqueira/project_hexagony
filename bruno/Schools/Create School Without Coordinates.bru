@@ -1,0 +1,21 @@
+meta {
+  name: Create School Without Coordinates
+  type: http
+  seq: 2
+}
+
+post {
+  url: http://localhost:8080/api/v1/schools
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "name": "Escola Exemplo"
+  }
+}
+
+assert {
+  res.status: eq 400
+}
