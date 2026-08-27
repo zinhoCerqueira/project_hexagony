@@ -13,6 +13,6 @@ public interface SpringDataQueueRepository extends JpaRepository<PickupQueueEnti
   List<PickupQueueEntity> findBySchoolIdAndJourneyStatusInOrderByCreatedAtAsc(
       UUID schoolId, Collection<QueueStatus> statuses);
 
-  Optional<PickupQueueEntity> findFirstByStudentIdAndJourneyStatusInOrderByCreatedAtAsc(
+  Optional<PickupQueueEntity> findFirstByStudentIdAndJourneyStatusInOrderByCreatedAtDesc(
       UUID studentId, Collection<QueueStatus> statuses);
 }

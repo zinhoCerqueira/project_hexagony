@@ -56,6 +56,21 @@ public class PickupQueueItem {
     this.updatedAt = updatedAt;
   }
 
+  public PickupQueueItem withId(UUID newId) {
+    return new PickupQueueItem(
+        newId,
+        schoolId,
+        studentId,
+        parentId,
+        journeyStatus,
+        called,
+        currentRange,
+        latitude,
+        longitude,
+        createdAt,
+        updatedAt);
+  }
+
   public static PickupQueueItem reconstitute(
       UUID id,
       UUID schoolId,
