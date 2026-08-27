@@ -1,5 +1,6 @@
 package com.schoolqueue.infrastructure.adapters.in.web;
 
+import com.schoolqueue.domain.exception.InvalidQueueStateException;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -23,5 +24,25 @@ public class GlobalExceptionHandler {
             .toList();
     return ResponseEntity.status(HttpStatus.BAD_REQUEST)
         .body(new ValidationErrorResponse(HttpStatus.BAD_REQUEST.value(), errors));
+  }
+
+  @ExceptionHandler(InvalidQueueStateException.class)
+  public ResponseEntity<ValidationErrorResponse> handleInvalidQueueState(
+      InvalidQueueStateException exception) {
+    return ResponseEntity.status(HttpStatus.CONFLICT)
+        .body(
+            new ValidationErrorResponse(
+                HttpStatus.CONFLICT.value(),
+                List.of(new FieldError("state", exception.getMessage()))));
+  }
+
+  @ExceptionHandler(IllegalStateException.class)
+  public ResponseEntity<ValidationErrorResponse> handleIllegalState(
+      IllegalStateException exception) {
+    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+        .body(
+            new ValidationErrorResponse(
+                HttpStatus.BAD_REQUEST.value(),
+                List.of(new FieldError("state", exception.getMessage()))));
   }
 }
