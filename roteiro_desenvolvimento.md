@@ -1130,3 +1130,19 @@ Decidir também: DTOs de request/response (`AnnounceArrivalRequest`,
 (item não encontrado) + 409 (transição inválida → `InvalidQueueStateException`).
 Os `*ServiceTest` já cobrem a lógica; o controller precisa ser exercitado
 via MockMvc com `GlobalExceptionHandler` real. #rest #arch #backend
+
+### LAC10 — Card [35] cancelado: DTOs sem `etaMinutes` (substituído por `currentRange`)
+
+O card antigo [35] (provavelmente do roteiro "Pai informa ETA em minutos" do
+modelo pré-GPS) **foi cancelado**. O modelo da fila é dirigido por GPS
+(`ProximityRange` calculado via Haversine entre o GPS do responsável e o da
+escola), então o `etaMinutes` saiu:
+- do `AnnounceArrivalCommand` (`domain/ports/in/AnnounceArrivalUseCase.java:11-12` carrega só `latitude`/`longitude`).
+- da tabela `pickup_queue` (sem coluna `eta`/`eta_minutes` na V1 do Flyway).
+- do contrato HTTP de entrada (`AnnounceArrivalRequest`) e de saída (`QueueItemResponse`), conforme `API00`.
+
+A `API00` implementa o substituto: os DTOs da fila usam `currentRange`
+(FAR/MEDIUM/CLOSE) e `latitude`/`longitude` do responsável. O card [35] em
+si não existe mais nem no roteiro nem no histórico de commits, então a
+substituição fica registrada via este card no backlog + mensagem do commit
+da `API00`. #arch #backend
