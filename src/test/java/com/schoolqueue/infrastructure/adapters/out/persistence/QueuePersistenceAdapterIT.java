@@ -47,6 +47,56 @@ class QueuePersistenceAdapterIT {
 
   @PersistenceContext private EntityManager entityManager;
 
+  @Test
+  @DisplayName("V1__init_schema migration is applied and the expected tables/columns exist")
+  void shouldApplyV1MigrationOnTestSchema() {
+    Long migrationCount =
+        ((Number)
+                entityManager
+                    .createNativeQuery(
+                        "SELECT COUNT(*) FROM flyway_schema_history WHERE version = '1' AND"
+                            + " success = true")
+                    .getSingleResult())
+            .longValue();
+    assertThat(migrationCount)
+        .as("Flyway V1 should be recorded as successfully applied")
+        .isEqualTo(1L);
+
+    assertThat(tableExists("pickup_queue")).isTrue();
+    assertThat(tableExists("schools")).isTrue();
+    assertThat(tableExists("students")).isTrue();
+    assertThat(tableExists("classrooms")).isTrue();
+    assertThat(tableExists("parents")).isTrue();
+
+    assertThat(columnExists("pickup_queue", "journey_status")).isTrue();
+    assertThat(columnExists("pickup_queue", "current_range")).isTrue();
+    assertThat(columnExists("pickup_queue", "called")).isTrue();
+    assertThat(columnExists("pickup_queue", "school_id")).isTrue();
+    assertThat(columnExists("pickup_queue", "student_id")).isTrue();
+    assertThat(columnExists("pickup_queue", "parent_id")).isTrue();
+  }
+
+  private boolean tableExists(String tableName) {
+    Object result =
+        entityManager
+            .createNativeQuery("SELECT to_regclass(?)")
+            .setParameter(1, "public." + tableName)
+            .getSingleResult();
+    return result != null;
+  }
+
+  private boolean columnExists(String tableName, String columnName) {
+    Object count =
+        entityManager
+            .createNativeQuery(
+                "SELECT COUNT(*) FROM information_schema.columns WHERE table_name = ? AND"
+                    + " column_name = ?")
+            .setParameter(1, tableName)
+            .setParameter(2, columnName)
+            .getSingleResult();
+    return ((Number) count).longValue() > 0;
+  }
+
   private FkRefs newFks() {
     UUID schoolId = UUID.randomUUID();
     UUID classroomId = UUID.randomUUID();
@@ -186,6 +236,9 @@ class QueuePersistenceAdapterIT {
     assertThat(active).isPresent();
     assertThat(active.orElseThrow().id()).isEqualTo(newer.id());
     assertThat(active.orElseThrow().journeyStatus()).isEqualTo(QueueStatus.ARRIVED);
+    assertThat(active.orElseThrow().createdAt())
+        .as("findActiveByStudentId must return the item with the latest createdAt")
+        .isAfterOrEqualTo(older.createdAt());
     assertThat(older.id()).isNotEqualTo(newer.id());
   }
 
