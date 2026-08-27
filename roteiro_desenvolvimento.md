@@ -1068,3 +1068,16 @@ depende de política de produto. Se for regra de negócio, adicionar
 Há 1 teste no service contra 5 cenários no controller. Falta cobrir:
 service recebendo latitude ou longitude nula (deve propagar
 `IllegalArgumentException` vinda de `School`). #test
+
+### LAC06 — Sem verificação de cadastros repetidos em nenhuma unidade
+
+Reproduzido: `schools` tem 11 linhas com apenas 2 nomes distintos e 1 par
+lat/lng (confirmado em `pg_stat_user_tables` via `psql`). Nenhuma das
+unidades (`schools`, `students`, `parents`, `classrooms`) tem unicidade
+garantida — nem em banco (`UNIQUE` constraint), nem em service
+(checagem no use case + 409 no `GlobalExceptionHandler`). O LAC04 já
+cobre `schools` por `name`; este card é mais amplo: revisar todas as
+unidades e decidir, para cada uma, qual é a chave natural única (nome,
+documento, par lat/lng, etc.) e onde aplicá-la (constraint no schema
+Flyway + validação no domínio). Inclui o `DataIntegrityViolationException`
+no handler para 409 quando a constraint pegar. #backend #db #arch
