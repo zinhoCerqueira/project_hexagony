@@ -1146,3 +1146,30 @@ A `API00` implementa o substituto: os DTOs da fila usam `currentRange`
 si não existe mais nem no roteiro nem no histórico de commits, então a
 substituição fica registrada via este card no backlog + mensagem do commit
 da `API00`. #arch #backend
+
+### LAC11 — API01 já entregue como parte da API00 (`QueueDtoMapper.toResponse`)
+
+O card [36] do roteiro antigo (criar `QueueDtoMapper.toResponse`) **já foi
+implementado** dentro da `API00` — o mapper entrou completo no commit
+`8159dc2` e foi integrado a `main` em `699174f`. Não há trabalho de código
+pendente: o critério é satisfeito pelo que já está no repositório.
+
+**Implementação atual** (`src/main/java/com/schoolqueue/infrastructure/adapters/in/web/mapper/QueueDtoMapper.java:21-34`):
+- `public static QueueItemResponse toResponse(PickupQueueItem item)`
+  preenchendo os 11 campos do `QueueItemResponse`:
+  `id`, `schoolId`, `studentId`, `parentId`, `journeyStatus`, `called`,
+  `currentRange`, `latitude`, `longitude`, `createdAt`, `updatedAt`.
+- `called` (linha 28) e `currentRange` (linha 29) são os dois campos exigidos
+  pelo critério e estão presentes.
+- Classe `final` sem estado (`public final class QueueDtoMapper` + construtor
+  `private`) com métodos `public static` — mesmo padrão do `SchoolDtoMapper`.
+
+**Cobertura:** o mapper será exercitado automaticamente quando o
+`PickupQueueController` (LAC09) entrar e for coberto por `@WebMvcTest`. Não
+foi escrito teste unitário isolado do mapper nesta task por decisão do
+usuário; pode ser acrescido em task futura se a cobertura ficar baixa.
+
+O card [36] em si não existe mais nem no roteiro nem no histórico de
+commits, então o status "já entregue" fica registrado via este card no
+backlog + mensagem do commit `Registra API01 como já entregue (LAC11)`.
+#rest #arch
