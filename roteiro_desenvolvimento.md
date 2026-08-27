@@ -1207,3 +1207,59 @@ Solução: decidir uma convenção (recomendado: todos via component scan com
 `@Service`; remover o `@Bean` do `BeanConfiguration` e apagar a classe
 se ficar vazia) e aplicar. Ganha: menos código, padrão único, mais
 consistência. #arch #backend
+
+### LAC14 — Endpoints para criar `Student` / `Classroom` / `Parent`
+
+Reproduzido em runtime (E2E manual pós-`API02`): o `POST /api/v1/queue/announce`
+precisa que `students`, `classrooms` e `parents` existam no banco, mas **só
+existe controller para `School`** (`src/main/java/com/schoolqueue/infrastructure/adapters/in/web/SchoolController.java`).
+Quem for testar a fila tem que inserir as FKs via `psql` no Postgres, o que
+quebra a paridade com o fluxo do `School` (que vai 100% via HTTP).
+
+**Pendência (mesmo padrão do que foi feito para `School`):**
+- `POST /api/v1/students` → `RegisterStudentUseCase` (a criar)
+  - body: `{ schoolId, classroomId, name }`
+  - 201 + `Location` + `StudentResponse`
+  - validação: `@NotNull schoolId`, `@NotNull classroomId`, `@NotBlank name`
+  - 404 quando `schoolId` ou `classroomId` não existem (cobre o LAC12)
+- `POST /api/v1/classrooms` → `RegisterClassroomUseCase` (a criar)
+  - body: `{ schoolId, name }`
+  - 201 + `Location` + `ClassroomResponse`
+  - 404 quando `schoolId` não existe
+- `POST /api/v1/parents` → `RegisterParentUseCase` (a criar)
+  - body: `{ name, phone }`
+  - 201 + `Location` + `ParentResponse`
+
+**Pré-requisitos no domínio/infra (hoje ausentes):**
+- `StudentRepositoryPort`/`ClassroomRepositoryPort`/`ParentRepositoryPort` (driven
+  ports em `domain/ports/out/`) — só existem as entidades e o `QueueRepositoryPort`/`SchoolRepositoryPort`.
+- `StudentEntity`/`ClassroomEntity`/`ParentEntity` JPA + mapper + adapter de
+  persistência (mesma estrutura do `SchoolPersistenceAdapter`).
+- Driving ports `RegisterStudentUseCase` / `RegisterClassroomUseCase` /
+  `RegisterParentUseCase` (interfaces em `domain/ports/in/`).
+- Services em `application/usecase/...` anotados com `@Service`.
+- DTOs de request (`RegisterStudentRequest` etc.) e response (`StudentResponse` etc.)
+  em `infrastructure/adapters/in/web/dto/`.
+- `@WebMvcTest` por controller (mesmo padrão do `SchoolControllerWebTest`).
+- Bruno collections (`bruno/Students/Register Student.bru` já existe mas
+  retorna 404; falta `Classrooms/Create Classroom.bru` e `Parents/Create Parent.bru`).
+
+**Esboço de ordem (1 task por entidade, escopo pequeno):**
+1. `STU00` (ou `CAD00`) — `StudentPersistenceAdapter` + IT Testcontainers +
+   `RegisterStudentUseCase`/`Service` + DTOs + `StudentController` + `@WebMvcTest`
+   + Bruno. Replica o que a `FILA00` + `API01`/`API02` fizeram para a fila.
+2. `CLA00` — idem para `Classroom`.
+3. `PAR00` — idem para `Parent` (mais simples, sem FK externa).
+
+Cobertura: depois disso, o fluxo E2E da fila (`School` → `Classroom` → `Student`
+→ `Parent` → `Announce` → `Update` → `FetchActiveQueue`) roda 100% via HTTP +
+Bruno, sem `psql` manual. #rest #backend #arch
+
+### LAC15 — `StudentRepositoryPort` / `ClassroomRepositoryPort` / `ParentRepositoryPort` (sem adapter)
+
+Espelho da LAC14 mas focado só na infra: enquanto as driven ports não
+existirem, qualquer task que tente persistir `Student`/`Classroom`/`Parent`
+vai cair no `JPA` direto. Vale criar primeiro as 3 interfaces em
+`domain/ports/out/`, com o mínimo (`save` + `findById`), para destravar as
+implementações JPA da LAC14 sem violar a regra "Core nunca fala com JPA".
+#arch #backend
