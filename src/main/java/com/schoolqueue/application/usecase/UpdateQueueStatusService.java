@@ -10,9 +10,7 @@ import com.schoolqueue.domain.ports.in.UpdateQueueStatusUseCase.MarkAsCompleted;
 import com.schoolqueue.domain.ports.in.UpdateQueueStatusUseCase.UpdateRange;
 import com.schoolqueue.domain.ports.out.QueueNotificationPort;
 import com.schoolqueue.domain.ports.out.QueueRepositoryPort;
-import org.springframework.stereotype.Service;
 
-@Service
 public class UpdateQueueStatusService implements UpdateQueueStatusUseCase {
 
   private final QueueRepositoryPort queueRepositoryPort;

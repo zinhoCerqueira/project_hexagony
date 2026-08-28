@@ -1263,3 +1263,23 @@ vai cair no `JPA` direto. Vale criar primeiro as 3 interfaces em
 `domain/ports/out/`, com o mínimo (`save` + `findById`), para destravar as
 implementações JPA da LAC14 sem violar a regra "Core nunca fala com JPA".
 #arch #backend
+
+### LAC16 — LAC13 resolvida no sentido inverso via [CONF00]
+
+A task `[CONF00] BeanConfiguration` padronizou a publicação dos 4 use
+cases (`RegisterSchoolUseCase`, `AnnounceArrivalUseCase`,
+`UpdateQueueStatusUseCase`, `FetchActiveQueueUseCase`) via `@Bean`
+explícito no `src/main/java/com/schoolqueue/infrastructure/config/BeanConfiguration.java`
+e removeu o `@Service` das classes de `application/`. Garante o critério
+de aceite "Sem anotações Spring nas classes de aplicação" e endurece a
+regra "Core nunca fala com Spring".
+
+Decisão oposta à sugestão original da LAC13, que apontava component scan
+com `@Service` em todos e consequente remoção da `BeanConfiguration`.
+Optou-se pelo caminho inverso porque o critério da CONF00 é explícito
+sobre manter o core livre de anotações Spring. Os `@WebMvcTest` da `API02`
+seguem funcionando porque usam `@MockitoBean` diretamente nas interfaces
+de `ports.in`, sem depender do scan para instanciar os services.
+`SchoolControllerWebTest` continua passando também — o `RegisterSchoolUseCase`
+já era `@Bean` antes. Cobertura nova: `BeanConfigurationTest` valida que
+os 4 beans são registrados. #arch #backend #test

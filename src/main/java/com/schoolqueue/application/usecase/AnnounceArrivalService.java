@@ -8,9 +8,7 @@ import com.schoolqueue.domain.ports.in.AnnounceArrivalUseCase;
 import com.schoolqueue.domain.ports.out.QueueNotificationPort;
 import com.schoolqueue.domain.ports.out.QueueRepositoryPort;
 import com.schoolqueue.domain.ports.out.SchoolRepositoryPort;
-import org.springframework.stereotype.Service;
 
-@Service
 public class AnnounceArrivalService implements AnnounceArrivalUseCase {
 
   private final QueueRepositoryPort queueRepositoryPort;
