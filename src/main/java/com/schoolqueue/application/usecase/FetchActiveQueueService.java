@@ -7,9 +7,7 @@ import com.schoolqueue.domain.ports.out.QueueRepositoryPort;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
-import org.springframework.stereotype.Service;
 
-@Service
 public class FetchActiveQueueService implements FetchActiveQueueUseCase {
 
   private static final List<QueueStatus> ACTIVE_STATUSES =
