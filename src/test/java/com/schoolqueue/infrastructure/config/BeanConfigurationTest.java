@@ -7,6 +7,7 @@ import com.schoolqueue.domain.ports.in.FetchActiveQueueUseCase;
 import com.schoolqueue.domain.ports.in.RegisterSchoolUseCase;
 import com.schoolqueue.domain.ports.in.UpdateQueueStatusUseCase;
 import com.schoolqueue.domain.ports.out.ClassroomRepositoryPort;
+import com.schoolqueue.domain.ports.out.ParentRepositoryPort;
 import com.schoolqueue.domain.ports.out.QueueNotificationPort;
 import com.schoolqueue.domain.ports.out.QueueRepositoryPort;
 import com.schoolqueue.domain.ports.out.SchoolRepositoryPort;
@@ -83,6 +84,11 @@ class BeanConfigurationTest {
     @Bean
     ClassroomRepositoryPort classroomRepositoryPort() {
       return org.mockito.Mockito.mock(ClassroomRepositoryPort.class);
+    }
+
+    @Bean
+    ParentRepositoryPort parentRepositoryPort() {
+      return org.mockito.Mockito.mock(ParentRepositoryPort.class);
     }
   }
 }
