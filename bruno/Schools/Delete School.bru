@@ -1,0 +1,15 @@
+meta {
+  name: Delete School
+  type: http
+  seq: 6
+}
+
+delete {
+  url: http://localhost:8080/api/v1/schools/{{schoolId}}
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 405
+}

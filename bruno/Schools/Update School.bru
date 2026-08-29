@@ -1,0 +1,25 @@
+meta {
+  name: Update School
+  type: http
+  seq: 5
+}
+
+put {
+  url: http://localhost:8080/api/v1/schools/{{schoolId}}
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "name": "Escola Central Atualizada",
+    "latitude": -23.550000,
+    "longitude": -46.633000
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.id: eq {{schoolId}}
+  res.body.name: eq "Escola Central Atualizada"
+}

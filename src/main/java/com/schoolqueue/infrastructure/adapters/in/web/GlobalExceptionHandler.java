@@ -1,6 +1,7 @@
 package com.schoolqueue.infrastructure.adapters.in.web;
 
 import com.schoolqueue.domain.exception.InvalidQueueStateException;
+import com.schoolqueue.domain.exception.SchoolNotFoundException;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -44,5 +45,15 @@ public class GlobalExceptionHandler {
             new ValidationErrorResponse(
                 HttpStatus.BAD_REQUEST.value(),
                 List.of(new FieldError("state", exception.getMessage()))));
+  }
+
+  @ExceptionHandler(SchoolNotFoundException.class)
+  public ResponseEntity<ValidationErrorResponse> handleSchoolNotFound(
+      SchoolNotFoundException exception) {
+    return ResponseEntity.status(HttpStatus.NOT_FOUND)
+        .body(
+            new ValidationErrorResponse(
+                HttpStatus.NOT_FOUND.value(),
+                List.of(new FieldError("schoolId", exception.getMessage()))));
   }
 }
