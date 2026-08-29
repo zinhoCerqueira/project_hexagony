@@ -5,36 +5,48 @@ import com.schoolqueue.application.usecase.FetchActiveQueueService;
 import com.schoolqueue.application.usecase.FetchClassroomService;
 import com.schoolqueue.application.usecase.FetchParentService;
 import com.schoolqueue.application.usecase.FetchSchoolService;
+import com.schoolqueue.application.usecase.FetchStudentService;
 import com.schoolqueue.application.usecase.ListClassroomsBySchoolService;
 import com.schoolqueue.application.usecase.ListParentsService;
 import com.schoolqueue.application.usecase.ListSchoolsService;
+import com.schoolqueue.application.usecase.ListStudentsByClassroomService;
+import com.schoolqueue.application.usecase.ListStudentsBySchoolService;
 import com.schoolqueue.application.usecase.RegisterClassroomService;
 import com.schoolqueue.application.usecase.RegisterParentService;
 import com.schoolqueue.application.usecase.RegisterSchoolService;
+import com.schoolqueue.application.usecase.RegisterStudentService;
 import com.schoolqueue.application.usecase.UpdateClassroomService;
 import com.schoolqueue.application.usecase.UpdateParentService;
 import com.schoolqueue.application.usecase.UpdateQueueStatusService;
 import com.schoolqueue.application.usecase.UpdateSchoolService;
+import com.schoolqueue.application.usecase.UpdateStudentService;
 import com.schoolqueue.domain.ports.in.AnnounceArrivalUseCase;
 import com.schoolqueue.domain.ports.in.FetchActiveQueueUseCase;
 import com.schoolqueue.domain.ports.in.FetchClassroomUseCase;
 import com.schoolqueue.domain.ports.in.FetchParentUseCase;
 import com.schoolqueue.domain.ports.in.FetchSchoolUseCase;
+import com.schoolqueue.domain.ports.in.FetchStudentUseCase;
 import com.schoolqueue.domain.ports.in.ListClassroomsBySchoolUseCase;
 import com.schoolqueue.domain.ports.in.ListParentsUseCase;
 import com.schoolqueue.domain.ports.in.ListSchoolsUseCase;
+import com.schoolqueue.domain.ports.in.ListStudentsByClassroomUseCase;
+import com.schoolqueue.domain.ports.in.ListStudentsBySchoolUseCase;
 import com.schoolqueue.domain.ports.in.RegisterClassroomUseCase;
 import com.schoolqueue.domain.ports.in.RegisterParentUseCase;
 import com.schoolqueue.domain.ports.in.RegisterSchoolUseCase;
+import com.schoolqueue.domain.ports.in.RegisterStudentUseCase;
 import com.schoolqueue.domain.ports.in.UpdateClassroomUseCase;
 import com.schoolqueue.domain.ports.in.UpdateParentUseCase;
 import com.schoolqueue.domain.ports.in.UpdateQueueStatusUseCase;
 import com.schoolqueue.domain.ports.in.UpdateSchoolUseCase;
+import com.schoolqueue.domain.ports.in.UpdateStudentUseCase;
 import com.schoolqueue.domain.ports.out.ClassroomRepositoryPort;
 import com.schoolqueue.domain.ports.out.ParentRepositoryPort;
+import com.schoolqueue.domain.ports.out.ParentStudentLinkRepositoryPort;
 import com.schoolqueue.domain.ports.out.QueueNotificationPort;
 import com.schoolqueue.domain.ports.out.QueueRepositoryPort;
 import com.schoolqueue.domain.ports.out.SchoolRepositoryPort;
+import com.schoolqueue.domain.ports.out.StudentRepositoryPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -104,6 +116,53 @@ public class BeanConfiguration {
   @Bean
   public UpdateParentUseCase updateParentUseCase(ParentRepositoryPort parentRepositoryPort) {
     return new UpdateParentService(parentRepositoryPort);
+  }
+
+  @Bean
+  public RegisterStudentUseCase registerStudentUseCase(
+      StudentRepositoryPort studentRepositoryPort,
+      SchoolRepositoryPort schoolRepositoryPort,
+      ClassroomRepositoryPort classroomRepositoryPort,
+      ParentRepositoryPort parentRepositoryPort,
+      ParentStudentLinkRepositoryPort parentStudentLinkRepositoryPort) {
+    return new RegisterStudentService(
+        studentRepositoryPort,
+        schoolRepositoryPort,
+        classroomRepositoryPort,
+        parentRepositoryPort,
+        parentStudentLinkRepositoryPort);
+  }
+
+  @Bean
+  public FetchStudentUseCase fetchStudentUseCase(StudentRepositoryPort studentRepositoryPort) {
+    return new FetchStudentService(studentRepositoryPort);
+  }
+
+  @Bean
+  public ListStudentsBySchoolUseCase listStudentsBySchoolUseCase(
+      StudentRepositoryPort studentRepositoryPort) {
+    return new ListStudentsBySchoolService(studentRepositoryPort);
+  }
+
+  @Bean
+  public ListStudentsByClassroomUseCase listStudentsByClassroomUseCase(
+      StudentRepositoryPort studentRepositoryPort) {
+    return new ListStudentsByClassroomService(studentRepositoryPort);
+  }
+
+  @Bean
+  public UpdateStudentUseCase updateStudentUseCase(
+      StudentRepositoryPort studentRepositoryPort,
+      SchoolRepositoryPort schoolRepositoryPort,
+      ClassroomRepositoryPort classroomRepositoryPort,
+      ParentRepositoryPort parentRepositoryPort,
+      ParentStudentLinkRepositoryPort parentStudentLinkRepositoryPort) {
+    return new UpdateStudentService(
+        studentRepositoryPort,
+        schoolRepositoryPort,
+        classroomRepositoryPort,
+        parentRepositoryPort,
+        parentStudentLinkRepositoryPort);
   }
 
   @Bean

@@ -1,0 +1,25 @@
+meta {
+  name: Update Student
+  type: http
+  seq: 5
+}
+
+put {
+  url: http://localhost:8080/api/v1/students/{{studentId}}
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "schoolId": "{{schoolId}}",
+    "classroomId": "{{classroomId}}",
+    "name": "João Aluno Atualizado",
+    "parentIds": ["{{parentId}}"]
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.id: eq {{studentId}}
+}

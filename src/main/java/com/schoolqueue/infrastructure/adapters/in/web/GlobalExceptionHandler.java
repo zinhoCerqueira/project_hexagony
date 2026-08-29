@@ -4,6 +4,7 @@ import com.schoolqueue.domain.exception.ClassroomNotFoundException;
 import com.schoolqueue.domain.exception.InvalidQueueStateException;
 import com.schoolqueue.domain.exception.ParentNotFoundException;
 import com.schoolqueue.domain.exception.SchoolNotFoundException;
+import com.schoolqueue.domain.exception.StudentNotFoundException;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -77,5 +78,15 @@ public class GlobalExceptionHandler {
             new ValidationErrorResponse(
                 HttpStatus.NOT_FOUND.value(),
                 List.of(new FieldError("parentId", exception.getMessage()))));
+  }
+
+  @ExceptionHandler(StudentNotFoundException.class)
+  public ResponseEntity<ValidationErrorResponse> handleStudentNotFound(
+      StudentNotFoundException exception) {
+    return ResponseEntity.status(HttpStatus.NOT_FOUND)
+        .body(
+            new ValidationErrorResponse(
+                HttpStatus.NOT_FOUND.value(),
+                List.of(new FieldError("studentId", exception.getMessage()))));
   }
 }
