@@ -22,6 +22,6 @@ assert {
   res.status: eq 201
 }
 
-vars:post-response {
+script:post-response {
   bru.setVar("schoolId", res.body.id);
 }
