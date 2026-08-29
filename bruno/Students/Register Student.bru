@@ -12,12 +12,17 @@ post {
 
 body:json {
   {
-    "schoolId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
-    "classroomId": "c9bf9e57-1685-4c89-baf3-ff5aaf830be9f",
-    "name": "João Aluno Exemplo"
+    "schoolId": "{{schoolId}}",
+    "classroomId": "{{classroomId}}",
+    "name": "João Aluno Exemplo",
+    "parentIds": ["{{parentId}}"]
   }
 }
 
 assert {
-  res.status: eq 200
+  res.status: eq 201
+}
+
+script:post-response {
+  bru.setVar("studentId", res.body.id);
 }
