@@ -1,5 +1,6 @@
 package com.schoolqueue.infrastructure.adapters.in.web;
 
+import com.schoolqueue.domain.exception.ClassroomNotFoundException;
 import com.schoolqueue.domain.exception.InvalidQueueStateException;
 import com.schoolqueue.domain.exception.SchoolNotFoundException;
 import java.util.List;
@@ -55,5 +56,15 @@ public class GlobalExceptionHandler {
             new ValidationErrorResponse(
                 HttpStatus.NOT_FOUND.value(),
                 List.of(new FieldError("schoolId", exception.getMessage()))));
+  }
+
+  @ExceptionHandler(ClassroomNotFoundException.class)
+  public ResponseEntity<ValidationErrorResponse> handleClassroomNotFound(
+      ClassroomNotFoundException exception) {
+    return ResponseEntity.status(HttpStatus.NOT_FOUND)
+        .body(
+            new ValidationErrorResponse(
+                HttpStatus.NOT_FOUND.value(),
+                List.of(new FieldError("classroomId", exception.getMessage()))));
   }
 }

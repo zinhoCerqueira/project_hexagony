@@ -1,0 +1,23 @@
+meta {
+  name: Update Classroom
+  type: http
+  seq: 4
+}
+
+put {
+  url: http://localhost:8080/api/v1/classrooms/{{classroomId}}
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "schoolId": "{{schoolId}}",
+    "name": "Turma A Atualizada"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.id: eq {{classroomId}}
+}
