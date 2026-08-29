@@ -1318,3 +1318,33 @@ Ficavam duas lacunas explícitas no card:
 
 Nada de produção foi tocado na TEST02 — apenas arquivos de teste. O card
 TEST02 pode ser marcado como concluído. #rest #test
+
+### LAC18 — Notação de volume (`pgdata` vs. `project_hexagony_pgdata`) não é divergência
+
+A observação registrada no plano da `OPS00` apontava aparente divergência
+entre `docker/docker-compose.yml` (usa `pgdata:` simples, linha 14 e
+declaração na linha 52) e `AGENTS.md` (usa o nome já prefixado
+`project_hexagony_pgdata` e `project_hexagony_pgadmin-data` na tabela de
+volumes da linha 70 e nos comandos de backup das linhas 93–98).
+
+**Verificação (`OPS00`):**
+- `docker compose --project-directory . -f docker/docker-compose.yml
+  config --volumes` retorna `pgdata` e `pgadmin-data` (nomes curtos
+  declarados no Compose).
+- `docker volume inspect project_hexagony_pgdata` mostra os labels:
+  - `com.docker.compose.project = project_hexagony`
+  - `com.docker.compose.volume = pgdata`
+  - `com.docker.compose.config-hash = 31cd162e78c7f5765284b8545eef38c98c4bb059c4a9c0957bc032912c62cc02`
+- `Name` do volume = `project_hexagony_pgdata`.
+
+**Conclusão:** os dois documentos estão corretos, só misturam notações.
+O `docker-compose.yml` declara o nome lógico (`pgdata:`) e o Docker
+Compose prefixa automaticamente com o nome do diretório do projeto
+(`project_hexagony_`), produzindo o nome final `project_hexagony_pgdata`
+que aparece no `AGENTS.md`. Nenhuma correção é necessária: a sintaxe
+do `docker-compose.yml` é a recomendada, e os comandos de
+backup/restore do `AGENTS.md` (`-v project_hexagony_pgdata:/from`)
+operam sobre o nome final resolvido pelo Compose.
+
+A divergência é apenas de notação, não semântica. Manter o
+`docker-compose.yml` como está. #devops #docs #arch
