@@ -1348,3 +1348,48 @@ operam sobre o nome final resolvido pelo Compose.
 
 A divergência é apenas de notação, não semântica. Manter o
 `docker-compose.yml` como está. #devops #docs #arch
+
+### LAC19 — `application.yml` tem credenciais do Postgres hardcoded (duplicação frágil vs `.env`)
+
+Observação levantada no plano da `OPS01`. O
+`src/main/resources/application.yml` traz as credenciais do Postgres
+**hardcoded** (`username: queue_user`, `password: queue_password`,
+`url: jdbc:postgresql://localhost:5432/school_queue_db`),
+enquanto o `docker/docker-compose.yml` as lê via `${POSTGRES_*}` do
+`.env` da raiz. Os valores coincidem hoje (vide `.env`), mas é uma
+duplicação frágil: qualquer divergência silenciosa entre os dois
+arquivos quebra a aplicação ou o container sem aviso.
+
+**Por que existe:**
+- O `docker-compose.yml` foi parametrizado pela `Task 28` (commit
+  `3f381f0`) para usar o `.env` centralizado.
+- O `application.yml` continua com valores literais desde o setup
+  original (`7a1b9c8`) e nunca foi migrado para placeholders.
+- Spring Boot resolve `${POSTGRES_USER}` em `application.yml` se houver
+  uma propriedade de ambiente/system com esse nome, mas a
+  parametrização atual do `.env` é só para o Compose (não é exportada
+  para o processo do app).
+
+**Por que não foi resolvido na OPS01 (fora de escopo):**
+- A task é estritamente "subir a aplicação e validar startup". Mexer no
+  `application.yml` traz consigo decisões de runtime (profile, env var
+  vs. placeholders, segredos) que merecem uma task dedicada.
+- Decidir o formato: `${POSTGRES_USER:queue_user}` (placeholder com
+  default) vs. env var obrigatória vs. profile `--spring.profiles.active`
+  carregando `application-prod.yml`. Cada um tem trade-off.
+- Validar a substituição em todos os pontos que importam: datasource,
+  Flyway (não — Flyway usa a datasource), e qualquer outro recurso que
+  use essas credenciais.
+
+**Solução proposta (task futura):**
+- Substituir os 3 valores literais no `application.yml` por
+  `${POSTGRES_URL:...}`, `${POSTGRES_USER:queue_user}`,
+  `${POSTGRES_PASSWORD:queue_password}`.
+- Documentar no `AGENTS.md` que o `.env` é a fonte canônica das
+  credenciais e que o app lê via env var.
+- Opcional: adicionar `spring.config.import: optional:file:.env[.properties]`
+  no `application.yml` para que o app também carregue o `.env` em dev.
+- Cobrir com `@SpringBootTest` que injete as props via `@TestPropertySource`.
+
+Nada foi alterado no `application.yml` durante a OPS01 — apenas o
+registro deste card. #devops #arch #docs
