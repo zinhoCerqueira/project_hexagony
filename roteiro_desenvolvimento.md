@@ -1283,3 +1283,38 @@ de `ports.in`, sem depender do scan para instanciar os services.
 `SchoolControllerWebTest` continua passando também — o `RegisterSchoolUseCase`
 já era `@Bean` antes. Cobertura nova: `BeanConfigurationTest` valida que
 os 4 beans são registrados. #arch #backend #test
+
+### LAC17 — TEST02 fechou as duas pontas remanescentes (handler dedicado + 409 no PATCH)
+
+A `TEST02` ("Testes TDD do controller REST") tinha praticamente tudo
+coberto pela `API02` — o `PickupQueueControllerWebTest` (15 testes via
+`@WebMvcTest` + MockMvc) já garantia POST 200/400, PATCH 200/400 e GET.
+Ficavam duas lacunas explícitas no card:
+
+1. **`GlobalExceptionHandlerTest` dedicado** — o mapeamento
+   `InvalidQueueStateException` → 409 e `IllegalStateException` → 400 era
+   exercitado só como efeito colateral dos testes do controller, sem
+   regressão isolada do advice.
+2. **Cenário 409 no PATCH** — o critério do card diz *"PATCH .../status:
+   200 na transição; 409 em estado inválido"*, mas o teste original
+   `shouldReturnConflictWhenServiceThrowsInvalidQueueState` exercitava
+   apenas o `POST /announce`.
+
+**Resolução (TEST02):**
+- Novo `src/test/java/com/schoolqueue/infrastructure/adapters/in/web/GlobalExceptionHandlerTest.java`
+  (estilo **standalone puro** — instancia `new GlobalExceptionHandler()`,
+  sem Spring/MockMvc, AssertJ) cobrindo 3 cenários:
+  - `InvalidQueueStateException` → 409 + `field="state"` + mensagem
+    original preservada.
+  - `IllegalStateException` → 400 + `field="state"` + mensagem original.
+  - `MethodArgumentNotValidException` → 400 com 1 `FieldError` por campo
+    inválido (regressão do formato do `ValidationErrorResponse`,
+    não estava coberto de forma isolada antes).
+- Adicionado `shouldReturnConflictOnPatchWhenServiceThrowsInvalidQueueState`
+  no `PickupQueueControllerWebTest` (PATCH com `MARK_AS_COMPLETED` →
+  `InvalidQueueStateException("Aluno não pode ser entregue sem ter sido
+  chamado")` → 409 com `field="state"` e mensagem preservada).
+- `mvn -DskipITs test` verde: 126 testes (122 prévios + 4 novos), 0 falhas.
+
+Nada de produção foi tocado na TEST02 — apenas arquivos de teste. O card
+TEST02 pode ser marcado como concluído. #rest #test
