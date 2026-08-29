@@ -1393,3 +1393,113 @@ arquivos quebra a aplicação ou o container sem aviso.
 
 Nada foi alterado no `application.yml` durante a OPS01 — apenas o
 registro deste card. #devops #arch #docs
+
+### LAC20 — DELETE bloqueado em School / Classroom / Parent / Student (LAC14 devolve 405)
+
+A [CAD00], [CLA00], [PAR00] e [STU00] (tasks da LAC14) implementaram CRUD
+completo com a convenção de **bloquear deleção** (decisão consciente do
+usuário, registrada em chat). Hoje os 4 controllers expõem `@DeleteMapping` que
+retornam `405 Method Not Allowed` via `ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).build()`.
+O método existe na API e nas Bruno collections (`Delete School.bru`,
+`Delete Classroom.bru`, `Delete Parent.bru`, `Delete Student.bru`) para
+deixar claro que a operação está reservada, não esquecida.
+
+**Lacuna:** quando reativar DELETE, decidir:
+
+- **Cascade** — `DELETE /api/v1/schools/{id}` derruba classrooms, students,
+  queue items em cascata. Exige schema com `ON DELETE CASCADE` e
+  reescrita do `*PersistenceAdapter` para limpar dependências.
+- **Block** — `409 Conflict` quando há dependências. Exige checagem
+  prévia (`countClassroomsBySchool`, `hasActiveQueueItem` etc.) e mapeamento
+  no `GlobalExceptionHandler` para 409 com mensagem específica.
+- **Soft-delete** — coluna `deleted_at` em cada entidade, query de
+  listagem filtra `WHERE deleted_at IS NULL`. Mantém histórico e permite
+  restore. Exige migration V2 em cada tabela.
+
+Cobertura: `SchoolControllerWebTest`, `ClassroomControllerWebTest`,
+`ParentControllerWebTest`, `StudentControllerWebTest` já têm teste
+`shouldReturnMethodNotAllowedOnDelete` cada um — esses testes vão precisar
+ser invertidos quando a decisão for tomada. #rest #arch #db
+
+### LAC25 — Melhorar mapeamento objeto-relacional (UUID cru → `@ManyToOne`/`@OneToMany`)
+
+Hoje o mapeamento JPA trata FKs como `UUID` cru em todas as entities de
+cadastro (`StudentEntity.schoolId`, `StudentEntity.classroomId`,
+`ClassroomEntity.schoolId`, `PickupQueueEntity.studentId`,
+`PickupQueueEntity.parentId`, `PickupQueueEntity.schoolId`,
+`ParentStudentEntity.id.parentId`, `ParentStudentEntity.id.studentId`).
+Funciona, mas:
+
+- **Sem joins** — não dá pra navegar `StudentEntity.getSchool().getName()`
+  sem ir ao banco duas vezes.
+- **Sem cascata** — deletar `School` exige deletar manualmente `Classroom`,
+  `Student`, `ParentStudent` (motivo da LAC20 acima).
+- **`StudentEntityMapper` é burro** — apenas copia `UUID` cru, sem
+  carregar a entidade relacionada. Hoje é proposital (mantém o Core
+  puro), mas se a complexidade subir, vale reavaliar.
+- **`ParentStudentEntity` usa `@EmbeddedId` manual** — funciona, mas dá
+  pra simplificar com `@ManyToOne` + `@JoinColumn` + `parent_student`
+  como entidade com FKs explícitas e chave substituta (ou mantendo
+  PK composta mas com relacionamentos).
+
+**Solução proposta (task futura):**
+
+- Trocar `UUID schoolId` por `@ManyToOne(fetch = FetchType.LAZY) SchoolEntity school` em
+  `StudentEntity`, `ClassroomEntity`, `PickupQueueEntity`.
+- Trocar `UUID parentId/studentId` em `PickupQueueEntity` por
+  `@ManyToOne` para `ParentEntity`/`StudentEntity`.
+- Trocar `@EmbeddedId` em `ParentStudentEntity` por dois `@ManyToOne`
+  com `@JoinColumn` (mantém a PK composta no banco via
+  `@IdClass` ou coluna `id` surrogate).
+- Atualizar `StudentEntityMapper`, `ClassroomEntityMapper`,
+  `QueueEntityMapper`, `ParentStudentEntityMapper` para carregar
+  as entidades relacionadas (ou decidir ficar com UUID no Core e
+  popular o relacionamento só na infraestrutura).
+- Atualizar `GlobalExceptionHandler` para mapear `EntityNotFoundException`
+  do Hibernate (caso FK aponte para registro inexistente — não deve
+  acontecer com a validação no service, mas é cinto + suspensórios).
+
+Cobre também parte da dívida da LAC20 (cascade) e da LAC07 (DLQ do
+Rabbit, não relacionada). #db #arch #backend
+
+### LAC26 — Decidir como `AnnounceArrival` resolve o `parentId` quando Student tem múltiplos pais
+
+A STU00 implementou Student com `parentIds: List<UUID>` (N:N via
+`parent_student`) — 1 aluno pode ter N responsáveis. Mas o
+`AnnounceArrivalCommand` (vide `AnnounceArrivalUseCase.java:11-12` e
+`AnnounceArrivalService.java:51`) ainda exige `parentId` único no body:
+
+```json
+POST /api/v1/queue/announce
+{
+  "schoolId": "...",
+  "studentId": "...",
+  "parentId": "...",       // <— único, hoje
+  "latitude": ...,
+  "longitude": ...
+}
+```
+
+Hoje o usuário passa o `parentId` que ele quer registrar (dentre os
+`parentIds` do Student), e o `AnnounceArrivalService` confia que esse
+parent existe. A `ParentNotFoundException` (handler 404) cobre o caso
+de parent inválido, mas **não cobre** o caso de parent válido porém
+**não vinculado** ao Student. Ex.: João cadastrado para Maria, mas
+`Announce` é chamado com `parentId=outroPai` → o request passa e
+o evento Rabbit é publicado com `parentId` que não está no
+`parent_student` desse Student.
+
+**Decisões a tomar (em task futura):**
+
+- (a) **Validar que `parentId` ∈ `parentIds` do Student** no
+  `AnnounceArrivalService` (lança 400/409 se não estiver). Simples,
+  preserva o contrato atual.
+- (b) **Tornar `parentId` opcional** no `AnnounceArrivalCommand` e
+  inferir o "pai da vez" a partir de quem está mais perto (GPS) —
+  alinhado com a feature "pai informa localização". Mais complexo,
+  exige mudar o modelo da fila.
+- (c) **Aceitar `parentIds: [list]`** no body da fila. Vira N
+  responsáveis na fila, o que provavelmente não faz sentido (a fila
+  é "o aluno X vai sair, buscado por Y"). Descartado.
+
+Recomendação: (a) — validação explícita, sem mudança de contrato. #arch #backend
