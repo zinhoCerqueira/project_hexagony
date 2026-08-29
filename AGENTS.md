@@ -67,7 +67,7 @@ O `docker/docker-compose.yml` declara dois volumes nomeados que carregam
 
 | Volume | Conteúdo | Consequência se removido |
 |---|---|---|
-| `project_hexagony_pgdata` | Cluster Postgres (`/var/lib/postgresql/data`) — schema Flyway + dados de `schools`, `students`, `pickup_queue`, etc. | Postgres reinicia vazio, Flyway reaplica a `V1` e **todos os dados somem**. |
+| `project_hexagony_pgdata` | Diretório `/var/lib/postgresql` (PGDATA aponta para `pgdata_app/`) — schema Flyway + dados de `schools`, `students`, `pickup_queue`, etc. O cluster Postgres mora num subdir dedicado, **não** na raiz do volume. | Postgres reinicia vazio, Flyway reaplica a `V1` e **todos os dados somem**. Reset seguro e rápido: `docker compose down -v pgdata` (afeta só este volume; `pgadmin-data` permanece intacto). |
 | `project_hexagony_pgadmin-data` | `pgadmin4.db` (lista de servers, usuários, preferências) | pgAdmin reseta; o server `school-queue-db` precisa ser reimportado via `docker/pgadmin/servers.json` (já acontece se o arquivo estiver versionado). |
 
 **Comandos que APAGAM dados sem aviso:**
