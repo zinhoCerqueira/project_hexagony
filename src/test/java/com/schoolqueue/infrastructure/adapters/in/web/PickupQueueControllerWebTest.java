@@ -374,6 +374,24 @@ class PickupQueueControllerWebTest {
   }
 
   @Test
+  @DisplayName("PATCH /{id}/status returns 409 when service throws InvalidQueueStateException")
+  void shouldReturnConflictOnPatchWhenServiceThrowsInvalidQueueState() throws Exception {
+    when(updateQueueStatusUseCase.execute(any(UpdateQueueStatusCommand.class)))
+        .thenThrow(new InvalidQueueStateException("Aluno não pode ser entregue sem ter sido chamado"));
+
+    mockMvc
+        .perform(
+            patch("/api/v1/queue/{id}/status", QUEUE_ITEM_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"action\": \"MARK_AS_COMPLETED\"}"))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.errors[0].field").value("state"))
+        .andExpect(
+            jsonPath("$.errors[0].message")
+                .value("Aluno não pode ser entregue sem ter sido chamado"));
+  }
+
+  @Test
   @DisplayName("PATCH /{id}/status does not invoke the use case when bean validation fails")
   void shouldNotInvokeUseCaseWhenPatchFailsBeanValidation() throws Exception {
     mockMvc
