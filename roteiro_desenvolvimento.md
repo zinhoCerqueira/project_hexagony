@@ -1503,3 +1503,22 @@ o evento Rabbit é publicado com `parentId` que não está no
   é "o aluno X vai sair, buscado por Y"). Descartado.
 
 Recomendação: (a) — validação explícita, sem mudança de contrato. #arch #backend
+
+### LAC27 — Critério da BRUNO03 cita `200` mas projeto padronizou `201 Created` em POSTs cadastrais
+
+A task `[BRUNO03]` (`bruno/Students/Register Student.bru`, ex-task `[43]` do
+roteiro) declara no critério de aceite `Assert: res.status eq 200`, mas o
+endpoint `POST /api/v1/students` foi implementado pelo `[STU00]`
+(`src/main/java/com/schoolqueue/infrastructure/adapters/in/web/StudentController.java:59`)
+retornando `ResponseEntity.created(location).body(...)` — ou seja, `201 Created`
+com `Location` header. A coleção `Students` inteira está consistente em `201`
+(mesma convenção de `Create School.bru`, `Create Classroom.bru` e
+`Create Parent.bru`), e o teste `StudentControllerWebTest.shouldCreateStudent`
+(`src/test/java/com/schoolqueue/infrastructure/adapters/in/web/StudentControllerWebTest.java:71`)
+valida `isCreated()`. Reverter o endpoint para `200` quebraria a consistência
+REST do projeto e o teste atual.
+
+**Decisão (BRUNO03):** manter `201` no `Register Student.bru` e registrar
+esta lacuna. O `.bru` já cumpre o restante do critério (payload com
+`schoolId`, `classroomId`, `name`; `script:post-response` capturando
+`studentId` em `bru.setVar`). Sem mudança funcional. #tests #bruno #rest #docs
