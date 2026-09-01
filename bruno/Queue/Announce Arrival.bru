@@ -12,9 +12,9 @@ post {
 
 body:json {
   {
-    "schoolId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
-    "studentId": "c9bf9e57-1685-4c89-bafb-ff5af830be8a",
-    "parentId": "d3b07384-d113-424a-4f3b-2232938b2bb4",
+    "schoolId": "{{schoolId}}",
+    "studentId": "{{studentId}}",
+    "parentId": "{{parentId}}",
     "latitude": -23.550520,
     "longitude": -46.633308
   }
@@ -22,7 +22,13 @@ body:json {
 
 assert {
   res.status: eq 200
-  res.body.status: eq EN_ROUTE
+  res.body.journeyStatus: eq EN_ROUTE
+  res.body.currentRange: eq CLOSE
+  res.body.called: eq true
+}
+
+script:post-response {
+  bru.setVar("queueItemId", res.body.id);
 }
 
 docs {
