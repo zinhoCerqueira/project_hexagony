@@ -1522,3 +1522,44 @@ REST do projeto e o teste atual.
 esta lacuna. O `.bru` já cumpre o restante do critério (payload com
 `schoolId`, `classroomId`, `name`; `script:post-response` capturando
 `studentId` em `bru.setVar`). Sem mudança funcional. #tests #bruno #rest #docs
+
+### LAC28 — Correções aplicadas ao `bruno/Queue/Announce Arrival.bru` (BRUNO00)
+
+A task `[BRUNO00]` (ex-task `[85]`; substitui o card `[44]` cancelado —
+vide LAC10) pediu `POST /api/v1/queue/announce` com `latitude`/`longitude`
+e asserts de `EN_ROUTE` + range derivado da distância. O
+`bruno/Queue/Announce Arrival.bru` foi atualizado em quatro pontos
+(`src/bruno/Queue/Announce Arrival.bru:13-31`):
+
+1. **Assert errado** — usava `res.body.status eq EN_ROUTE` mas o campo
+   correto no DTO é `journeyStatus` (vide
+   `src/main/java/com/schoolqueue/infrastructure/adapters/in/web/dto/QueueItemResponse.java:14`).
+   Corrigido para `res.body.journeyStatus: eq EN_ROUTE`.
+2. **Asserts ausentes** — `currentRange eq CLOSE` e `called eq true`
+   não estavam declarados. A coordenada do pai igual à da escola
+   (`-23.550520, -46.633308`) garante distância Haversine `= 0`, que cai
+   no limite `≤ 0.5 km` de `ProximityRange.fromDistanceKm`
+   (`src/main/java/com/schoolqueue/domain/model/ProximityRange.java:14-22`),
+   e a regra de domínio em `PickupQueueItem.updateRange` força
+   `called = true` ao entrar em `CLOSE`.
+3. **UUIDs hardcoded** — `schoolId`/`studentId`/`parentId` estavam
+   congelados em literais (`a0eebc99-…`, `c9bf9e57-…`, `d3b07384-…`)
+   que não correspondiam a nenhuma escola/aluno/responsável real,
+   fazendo o request retornar 404 (`SchoolNotFoundException` /
+   `StudentNotFoundException` / `ParentNotFoundException`) ao ser
+   executado. Substituídos por `{{schoolId}}`/`{{studentId}}`/`{{parentId}}`,
+   capturados pelos `.bru` anteriores (`Create School.bru`,
+   `Register Student.bru`, `Create Parent.bru`).
+4. **`queueItemId` não era capturado** — sem ele, o `Update Status.bru`
+   (`bruno/Queue/Update Status.bru:9`) e o `List Active Queue.bru` (path
+   via `{{schoolId}}`) não encadeiam com o anúncio. Adicionado
+   `script:post-response { bru.setVar("queueItemId", res.body.id); }`,
+   mesmo padrão do BRUNO02 (`bruno/Schools/Create School.bru:25-27`).
+
+**`docs` block intencionalmente mantido desatualizado** — a nota "este
+endpoint retorna 404 no estado atual do código" é falsa desde
+`a55b51e ([API02])` / `d2ab7ac`, mas a decisão do usuário na BRUNO00 foi
+deixar como está e apenas registrar a obsolescência aqui para revisão
+futura.
+
+Sem mudança em código Java, DTOs, testes ou schema. #tests #bruno #rest #docs
