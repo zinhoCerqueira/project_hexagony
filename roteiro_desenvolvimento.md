@@ -1563,3 +1563,36 @@ deixar como está e apenas registrar a obsolescência aqui para revisão
 futura.
 
 Sem mudança em código Java, DTOs, testes ou schema. #tests #bruno #rest #docs
+
+### LAC29 — Assert de conteúdo no `bruno/Queue/List Active Queue.bru` (BRUNO04)
+
+A task `[BRUNO04]` (ex-task `[45]`) pediu `GET /api/v1/queue/school/{schoolId}/active`
+com asserts `res.status eq 200` e "lista contém o aluno anunciado". O
+`bruno/Queue/List Active Queue.bru` foi atualizado em um único ponto
+(`bruno/Queue/List Active Queue.bru:15`):
+
+- **Assert de conteúdo ausente** — o `.bru` original (commit `a55b51e`,
+  `[API02]`) validava apenas `res.status: eq 200`. Adicionado
+  `res("..[?(@.studentId == '{{studentId}}')]"): isNotEmpty` — usa a
+  `res()` query do Bruno (vide
+  https://docs.usebruno.com/testing/script/response/response-query) com
+  filtro JSONPath para validar que existe pelo menos um item da lista
+  cujo `studentId` é o do aluno anunciado, capturado em
+  `bruno/Students/Register Student.bru` (`script:post-response` da
+  BRUNO03). Forma declarativa, sem bloco JS, alinhada ao padrão
+  assert-only das outras `.bru` da coleção.
+- **Pré-requisito de encadeamento E2E** — para que o assert passe ao
+  rodar a coleção na ordem, a sequência precisa ser
+  `Create School.bru → Create Classroom.bru → Register Student.bru →
+  Create Parent.bru → Announce Arrival.bru → List Active Queue.bru`. Os
+  dois primeiros requests populam o `{{schoolId}}`/`{{classroomId}}`, o
+  terceiro popula `{{studentId}}` (consumido pelo assert), o quarto
+  popula `{{parentId}}` (consumido pelo Announce), o quinto popula
+  `{{queueItemId}}` (consumido pelo `Update Status.bru`, que faz parte
+  do fluxo da Fase 6 do roteiro mas não desta task).
+- **`docs` block mantido** — já era fiel à realidade (cita
+  `PickupQueueController`, `FetchActiveQueueUseCase`, lista
+  `EN_ROUTE/ARRIVED`, 11 campos com `called` e `currentRange`), então
+  não precisou de ajuste (decisão do usuário na BRUNO04).
+
+Sem mudança em código Java, DTOs, testes ou schema. #tests #bruno #rest #docs
