@@ -48,9 +48,39 @@ Fluxo padrão:
 - Commits **nunca são automáticos**: antes de commitar, pergunte ao usuário se deve
   prosseguir e só execute após aprovação explícita.
 - Mensagens em **português**, descritivas e no estilo do histórico existente.
-- Quando o trabalho atende a uma task do roteiro, inicie a mensagem com o prefixo
-  `[Task NNN]`, seguido do verbo/descrição. Ex.: `[Task 10] Setup .env com credenciais centralizadas`.
-- Commits que não correspondem a nenhuma task não levam o prefixo (ex.: ajustes de docs, chores avulsos).
+- **Famílias de prefixo aceitas** (ver `git log --oneline` para exemplos):
+
+  | Prefixo | Uso típico |
+  |---|---|
+  | `[Task NNN]` | Tasks numéricas antigas do roteiro. |
+  | `[GPSnn]` | Compartilhamento de GPS / `LocationSharing*`. |
+  | `[FILAnn]` | Domínio e use cases da fila de embarque. |
+  | `[CADnn]` | CRUD `School` (escola). |
+  | `[CLAnn]` | CRUD `Classroom` (turma/sala). |
+  | `[PARnn]` | CRUD `Parent` (responsável). |
+  | `[STUnn]` | CRUD `Student` (aluno, inclusive N:N com Parent). |
+  | `[OPSnn]` | Operações de infra/credenciais/startup. |
+  | `[APInn]` | Adaptadores REST (controllers, DTOs, mappers, GlobalExceptionHandler). |
+  | `[MSGnn]` | Mensageria (RabbitMQ). |
+  | `[CONFnn]` | Configuração Spring / Beans. |
+  | `[TESTnn]` | Cobertura de testes (especialmente regressões). |
+  | `[BRUNOnn]` | Coleções Bruno (`.bru`). |
+  | `[REVIEW]` | Auditorias / reviews técnicos. |
+  | `[FIXnn]` | Bugfixes sem task atrelada. |
+  | `[CHOREnn]` | Chores avulsos (atualização de AGENTS, deps, etc.). |
+
+  Famílias adicionais podem ser criadas via task do roteiro;
+  padronize 2 dígitos (`GPS00`, `API02`) — `[Task]` é a única exceção.
+
+- Cards de backlog (LACxx em `roteiro_desenvolvimento.md`) **não** viram
+  prefixo de commit por conta própria — eles entram quando viram task.
+- **Commits sem prefixo `[...]`** também são aceitos em dois casos:
+  1. **Integrações** para `main` (mensagem no estilo
+     `Integra [XYZnn] <descrição> em main`) — refletem o merge da
+     branch de trabalho.
+  2. **Avulsos curtos** que não cabem em família (ex.: `chore: ...`,
+     `Alinha payload do Bruno...`, `Registra LACxx: ...`) — preferir
+     sempre que possível alinhar a uma família existente.
 - Commits atômicos: um commit por mudança coesa.
 - Nunca commite secrets: `.env` e arquivos sensíveis estão no `.gitignore`.
 - Revise `git status` e `git diff` antes de commitar; inclua apenas arquivos relacionados.
