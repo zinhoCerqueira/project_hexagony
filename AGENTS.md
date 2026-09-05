@@ -5,11 +5,13 @@ versionamento e a organização do trabalho devem ser conduzidos a partir de ago
 
 ## Visão geral
 
-- **Projeto:** school-pickup-system — API de fila de embarque escolar (somente busca dos alunos pelos responsáveis; não há fluxo de desembarque).
-- **Arquitetura:** Hexagonal (Ports & Adapters), Java 21, Spring Boot 3.x, Maven.
-- **Infra local:** Docker Compose (PostgreSQL + RabbitMQ), credenciais em `.env` (raiz, não commitado).
-- **Roteiro:** as tarefas são numeradas em `roteiro_desenvolvimento.md` (ex.: Task 10, Task 11).
-  Referencie a task via prefixo no commit, conforme a seção "Convenção de commits".
+- **Projeto:** school-pickup-system — API de fila de embarque escolar dirigida por GPS (somente busca dos alunos pelos responsáveis; não há fluxo de desembarque).
+- **Arquitetura:** Hexagonal (Ports & Adapters) **estrita** — `domain/` é Java puro (zero Spring/JPA), services em `application/usecase/` **sem `@Service`** (instanciados por `@Bean` explícito em `BeanConfiguration`).
+- **Stack:** Java 21, Spring Boot 3.5.x, Spring Data JPA, Spring AMQP, Spring Validation, Flyway, PostgreSQL 16, RabbitMQ 3, Maven.
+- **Regra-chave da fila:** o `ProximityRange` (FAR/MEDIUM/CLOSE) é calculado no Core por Haversine entre o GPS do responsável e o da escola; a transição de estados (`EN_ROUTE → ARRIVED → COMPLETED`, `CANCELLED`) mora na entidade `PickupQueueItem` e é exposta via sealed interface `QueueAction` em `UpdateQueueStatusUseCase`.
+- **Mensageria:** 2 routing keys no exchange topic `school.queue.events` (`queue.arrival.announced`, `queue.status.changed`) bindadas na fila durável `queue.notifications`.
+- **Infra local:** Docker Compose (PostgreSQL + RabbitMQ + pgAdmin), credenciais em `.env` (raiz, não commitado), volumes nomeados `pgdata` e `pgadmin-data` (Docker prefixa como `project_hexagony_*` — ver LAC18).
+- **Roteiro:** `roteiro_desenvolvimento.md` define a especificação. **Convenção de commits:** ver seção dedicada (mais de uma família de prefixo convive hoje).
 
 ## Convenção de branches
 
