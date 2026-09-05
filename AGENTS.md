@@ -94,6 +94,24 @@ Fluxo padrão:
 - Sufixos: `*Test` = teste unitário (Surefire, roda no `mvn test`, sem Docker);
   `*IT` = teste de integração (Failsafe + Testcontainers, roda no `mvn verify`).
 
+### Padrões adicionais em uso
+
+- **Testes de controller (`@WebMvcTest`)** — usar `@MockitoBean` nos
+  `ports.in` (use cases), manter o `GlobalExceptionHandler` real no
+  contexto e validar 200/400/404/409 conforme contrato.
+- **Testes do `GlobalExceptionHandler`** — feito de forma
+  **standalone** (instanciar o advice diretamente, sem Spring/MockMvc)
+  para regressão isolada dos mapeamentos (`InvalidQueueStateException →
+  409`, `IllegalStateException → 400`, `MethodArgumentNotValidException →
+  400`, `*NotFoundException → 404`).
+- **Testcontainers** — usado tanto para **PostgreSQL** quanto para
+  **RabbitMQ** (deps já presentes no `pom.xml`). Roda em `mvn verify`,
+  não em `mvn test`.
+- **Cobertura (JaCoCo)** — gate configurado em `pom.xml`. Rodar
+  `mvn verify` para gerar relatório em `target/site/jacoco/index.html`.
+- **Formatação (Spotless + googleJavaFormat)** — `mvn spotless:check`
+  falha o build se houver desvio; `mvn spotless:apply` corrige.
+
 ## Verificação
 
 - Rodar build/testes Maven quando relevante: `mvn test` (sem wrapper `mvnw`; usar o Maven do sistema).
