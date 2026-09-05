@@ -237,6 +237,12 @@ O `docker/docker-compose.yml` declara dois volumes nomeados que carregam
 
 ## Backlog de lacunas encontradas
 
+> O backlog atual está em `roteiro_desenvolvimento.md`, seção
+> **"🐞 10. Backlog de Lacunas Encontradas"** (LAC01..LAC29 no último
+> snapshot, com alguns saltos na numeração). Esta seção do AGENTS.md
+> descreve **apenas a política** de manutenção do backlog — o conteúdo
+> em si fica no roteiro.
+
 - Ao longo do desenvolvimento, sempre que o agente identificar uma lacuna relevante
   (inconsistência entre código/roteiro, falta de teste, desvio de padrão, etc.),
   registrar um **card** no final de `roteiro_desenvolvimento.md`, na seção
