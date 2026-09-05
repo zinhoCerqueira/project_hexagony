@@ -28,6 +28,13 @@ Fluxo padrão:
 3. Trabalhe e faça commits atômicos (sempre pergunte antes de commitar — ver "Convenção de commits").
 4. Apresente o resumo de encerramento da task (ver seção abaixo).
 5. Com permissão explícita do usuário, integre em `main` (merge) e delete a branch de trabalho.
+6. **Pós-merge:** delete a branch de trabalho local com
+   `git branch -d feature/<nome>`. A remoção da branch remota
+   (`git push origin --delete feature/<nome>`) é opcional e fica a
+   critério do usuário.
+7. **Estratégia de merge:** use `--no-ff` em features com mais de um
+   commit (preserva o histórico da task). Para chores de um único
+   commit, fast-forward é aceitável.
 
 ## Encerramento de task
 
