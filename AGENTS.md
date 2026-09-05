@@ -194,9 +194,3 @@ O `docker/docker-compose.yml` declara dois volumes nomeados que carregam
 - Periodicamente, o agente **avisa o usuário** sobre os cards pendentes no
   backlog (ex.: ao final de uma task, ao retomar o trabalho, ou quando ficarem
   muitos). O usuário decide o que priorizar.
-- **Gatilhos para avisar sobre o backlog:**
-  1. Ao final de cada task (antes de merge).
-  2. Ao retomar o trabalho (início de sessão).
-  3. Quando 3+ cards novos forem acumulados desde o último aviso.
-- O aviso deve listar os cards pendentes (id + título + hashtags) e
-  perguntar ao usuário o que priorizar. Não resolve nada sozinho.
