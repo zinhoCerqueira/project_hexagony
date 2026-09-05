@@ -114,8 +114,17 @@ Fluxo padrão:
 
 ## Verificação
 
-- Rodar build/testes Maven quando relevante: `mvn test` (sem wrapper `mvnw`; usar o Maven do sistema).
-- Validar o Compose antes de subir: `docker compose --project-directory . -f docker/docker-compose.yml config`.
+- **Unit + Web:** `mvn test` (Surefire, sem Docker).
+- **Tudo (com Testcontainers):** `mvn verify` (Surefire + Failsafe +
+  JaCoCo report).
+- **Formato:** `mvn spotless:check` (CI gate) ou
+  `mvn spotless:apply` (corrige local).
+- **Compose:** validar antes de subir —
+  `docker compose --project-directory . -f docker/docker-compose.yml config`.
+- **Sem wrapper `mvnw`** neste projeto: usar o Maven do sistema
+  (`mvn -v` para conferir).
+- **Convenção geral:** antes de PR, rodar `mvn verify` localmente; o
+  CI pode repetir o mesmo gate.
 
 ## Persistência e volumes Docker
 
