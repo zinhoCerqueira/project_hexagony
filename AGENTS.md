@@ -136,6 +136,11 @@ O `docker/docker-compose.yml` declara dois volumes nomeados que carregam
 | `project_hexagony_pgdata` | Diretório `/var/lib/postgresql` (PGDATA aponta para `pgdata_app/`) — schema Flyway + dados de `schools`, `students`, `pickup_queue`, etc. O cluster Postgres mora num subdir dedicado, **não** na raiz do volume. | Postgres reinicia vazio, Flyway reaplica a `V1` e **todos os dados somem**. Reset seguro e rápido: `docker compose down -v pgdata` (afeta só este volume; `pgadmin-data` permanece intacto). |
 | `project_hexagony_pgadmin-data` | `pgadmin4.db` (lista de servers, usuários, preferências) | pgAdmin reseta; o server `school-queue-db` precisa ser reimportado via `docker/pgadmin/servers.json` (já acontece se o arquivo estiver versionado). |
 
+> **Nota (LAC18):** os volumes são declarados em `docker/docker-compose.yml`
+> como `pgdata` e `pgadmin-data`. O Docker prefixa automaticamente com o
+> nome do diretório do projeto (`project_hexagony_*`). Os dois nomes se
+> referem ao mesmo volume — não é divergência.
+
 **Comandos que APAGAM dados sem aviso:**
 
 - `docker compose down -v` — remove **todos** os volumes nomeados do projeto. **Nunca usar** em ambiente de estudo sem backup.
