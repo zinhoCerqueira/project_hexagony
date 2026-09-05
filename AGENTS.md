@@ -161,6 +161,29 @@ Fluxo padrão:
 - **Convenção geral:** antes de PR, rodar `mvn verify` localmente; o
   CI pode repetir o mesmo gate.
 
+## Documentos canônicos
+
+Mapa dos arquivos de documentação do repositório e seu papel:
+
+| Arquivo | Papel |
+|---|---|
+| `roteiro_desenvolvimento.md` | Especificação + backlog (seção 10). É a fonte da verdade do que *deveria* estar pronto. |
+| `AGENTS.md` | Convenções para agentes e fluxo de contribuição. Este arquivo. |
+| `REVIEW_FUNCIONAL_E_TESTES.md` | Guia E2E manual do que *está* implementado (cards por módulo + Bruno/cURL + Postgres + RabbitMQ). Sincronizar sempre que um módulo novo entrar. |
+| `POST_LINKEDIN_TECNICO.md` | Post técnico (template). Atualizar quando houver marcos relevantes. |
+| `bruno/` | Coleções HTTP versionadas. Fazem parte do contrato vivo da API (asserts validam respostas). |
+| `docker/docker-compose.yml` + `docker/pgadmin/servers.json` | Infra local — ver "Persistência e volumes Docker". |
+
+Quando criar/atualizar documentação:
+
+- **Novos endpoints/recursos** ⇒ atualizar `REVIEW_FUNCIONAL_E_TESTES.md`
+  e, se relevante, a coleção Bruno correspondente.
+- **Novas regras de contribuição** ⇒ atualizar `AGENTS.md` neste
+  arquivo (não em rascunhos soltos).
+- **Novo marco técnico publicável** ⇒ considerar atualizar
+  `POST_LINKEDIN_TECNICO.md` (a versão final é editável antes de colar
+  no LinkedIn).
+
 ## Persistência e volumes Docker
 
 O `docker/docker-compose.yml` declara dois volumes nomeados que carregam
