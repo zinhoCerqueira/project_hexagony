@@ -13,6 +13,41 @@ versionamento e a organização do trabalho devem ser conduzidos a partir de ago
 - **Infra local:** Docker Compose (PostgreSQL + RabbitMQ + pgAdmin), credenciais em `.env` (raiz, não commitado), volumes nomeados `pgdata` e `pgadmin-data` (Docker prefixa como `project_hexagony_*` — ver LAC18).
 - **Roteiro:** `roteiro_desenvolvimento.md` define a especificação. **Convenção de commits:** ver seção dedicada (mais de uma família de prefixo convive hoje).
 
+## Arquitetura de fato (regras operacionais)
+
+Regras que **valem** hoje no repositório e devem ser respeitadas em
+qualquer task nova. Foram firmadas em CONF00, API02, TEST02, MSG02 etc.
+
+- **`domain/` é Java puro.** Nenhuma anotação Spring, JPA, Jackson ou
+  Lombok nas classes deste pacote. Portas (`ports/in/`, `ports/out/`)
+  são interfaces; implementações concretas vivem em `application/` e
+  `infrastructure/`.
+- **Services em `application/usecase/` não usam `@Service`.** Eles
+  são instanciados por `@Bean` explícitos em
+  `infrastructure/config/BeanConfiguration.java`. Adicionar `@Service`
+  aqui é regressão.
+- **State machines novas devem usar `sealed interface`** com
+  `permits` para os comandos, espelhando o padrão de
+  `UpdateQueueStatusUseCase.QueueAction`. O compilador força a
+  exaustividade no `switch`.
+- **Records para DTOs e Commands HTTP/domínio** (DTOs em
+  `infrastructure/adapters/in/web/dto/`, Commands nos ports `in`).
+  Validação via Jakarta Validation direto nos componentes do record.
+- **Mappers de persistência** vivem em
+  `infrastructure/adapters/out/persistence/mapper/` e devem ter teste
+  unitário de ida-e-volta (`*EntityMapperTest`).
+- **Migrations Flyway** ficam em
+  `src/main/resources/db/migration` (padrão `V<NNN>__<descrição>.sql`).
+  A política é `spring.jpa.hibernate.ddl-auto = validate` — não usar
+  `update` nem criar schema via Hibernate.
+- **Eventos AMQP** são DTOs `record` em
+  `infrastructure/adapters/out/messaging/dto/`. Publicação sempre via
+  port `out` (`QueueNotificationPort`), nunca via `RabbitTemplate`
+  direto no use case.
+- **Não criar `REST DELETE`** sem task explícita: o padrão atual é
+  responder `405 Method Not Allowed` para sinalizar que a operação
+  ainda não foi modelada.
+
 ## Convenção de branches
 
 Projeto pessoal (desenvolvimento solo): apenas duas branches coexistem por vez.
