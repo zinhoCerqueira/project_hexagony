@@ -6,11 +6,13 @@ public class Parent {
   private final UUID id;
   private String name;
   private String phone;
+  private String email;
 
-  public Parent(UUID id, String name, String phone) {
+  public Parent(UUID id, String name, String phone, String email) {
     this.id = id != null ? id : UUID.randomUUID();
     this.name = name;
     this.phone = phone;
+    this.email = email;
   }
 
   public UUID id() {
@@ -25,11 +27,19 @@ public class Parent {
     return phone;
   }
 
+  public String email() {
+    return email;
+  }
+
   public void setName(String name) {
     this.name = name;
   }
 
   public void setPhone(String phone) {
     this.phone = phone;
+  }
+
+  public void setEmail(String email) {
+    this.email = email;
   }
 }

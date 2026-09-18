@@ -7,5 +7,5 @@ public interface UpdateParentUseCase {
 
   Parent execute(UpdateParentCommand command);
 
-  record UpdateParentCommand(UUID id, String name, String phone) {}
+  record UpdateParentCommand(UUID id, String name, String phone, String email) {}
 }

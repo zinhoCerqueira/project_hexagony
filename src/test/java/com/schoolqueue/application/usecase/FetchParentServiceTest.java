@@ -22,7 +22,7 @@ class FetchParentServiceTest {
   @DisplayName("returns the parent when it exists")
   void shouldReturnParent() {
     UUID id = UUID.randomUUID();
-    Parent parent = new Parent(id, "Maria", "1");
+    Parent parent = new Parent(id, "Maria", "1", "maria@mail.com");
     when(parentRepositoryPort.findById(id)).thenReturn(Optional.of(parent));
 
     Parent result = new FetchParentService(parentRepositoryPort).execute(id);

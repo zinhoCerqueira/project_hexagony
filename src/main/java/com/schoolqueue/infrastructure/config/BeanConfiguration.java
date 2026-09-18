@@ -42,6 +42,7 @@ import com.schoolqueue.domain.ports.in.UpdateSchoolUseCase;
 import com.schoolqueue.domain.ports.in.UpdateStudentUseCase;
 import com.schoolqueue.domain.ports.out.ClassroomRepositoryPort;
 import com.schoolqueue.domain.ports.out.ParentRepositoryPort;
+import com.schoolqueue.domain.ports.out.ParentSchoolLinkRepositoryPort;
 import com.schoolqueue.domain.ports.out.ParentStudentLinkRepositoryPort;
 import com.schoolqueue.domain.ports.out.QueueNotificationPort;
 import com.schoolqueue.domain.ports.out.QueueRepositoryPort;
@@ -75,8 +76,7 @@ public class BeanConfiguration {
 
   @Bean
   public RegisterClassroomUseCase registerClassroomUseCase(
-      SchoolRepositoryPort schoolRepositoryPort,
-      ClassroomRepositoryPort classroomRepositoryPort) {
+      SchoolRepositoryPort schoolRepositoryPort, ClassroomRepositoryPort classroomRepositoryPort) {
     return new RegisterClassroomService(schoolRepositoryPort, classroomRepositoryPort);
   }
 
@@ -99,8 +99,12 @@ public class BeanConfiguration {
   }
 
   @Bean
-  public RegisterParentUseCase registerParentUseCase(ParentRepositoryPort parentRepositoryPort) {
-    return new RegisterParentService(parentRepositoryPort);
+  public RegisterParentUseCase registerParentUseCase(
+      ParentRepositoryPort parentRepositoryPort,
+      SchoolRepositoryPort schoolRepositoryPort,
+      ParentSchoolLinkRepositoryPort parentSchoolLinkRepositoryPort) {
+    return new RegisterParentService(
+        parentRepositoryPort, schoolRepositoryPort, parentSchoolLinkRepositoryPort);
   }
 
   @Bean
@@ -170,8 +174,7 @@ public class BeanConfiguration {
       QueueRepositoryPort queueRepositoryPort,
       QueueNotificationPort notificationPort,
       SchoolRepositoryPort schoolRepositoryPort) {
-    return new AnnounceArrivalService(
-        queueRepositoryPort, notificationPort, schoolRepositoryPort);
+    return new AnnounceArrivalService(queueRepositoryPort, notificationPort, schoolRepositoryPort);
   }
 
   @Bean
@@ -181,8 +184,7 @@ public class BeanConfiguration {
   }
 
   @Bean
-  public FetchActiveQueueUseCase fetchActiveQueueUseCase(
-      QueueRepositoryPort queueRepositoryPort) {
+  public FetchActiveQueueUseCase fetchActiveQueueUseCase(QueueRepositoryPort queueRepositoryPort) {
     return new FetchActiveQueueService(queueRepositoryPort);
   }
 }

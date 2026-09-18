@@ -21,8 +21,8 @@ class ListParentsServiceTest {
   @Test
   @DisplayName("returns the list of parents")
   void shouldListParents() {
-    Parent a = new Parent(UUID.randomUUID(), "A", "1");
-    Parent b = new Parent(UUID.randomUUID(), "B", "2");
+    Parent a = new Parent(UUID.randomUUID(), "A", "1", "a@mail.com");
+    Parent b = new Parent(UUID.randomUUID(), "B", "2", "b@mail.com");
     when(parentRepositoryPort.findAll()).thenReturn(List.of(a, b));
 
     List<Parent> result = new ListParentsService(parentRepositoryPort).execute();

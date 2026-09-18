@@ -5,6 +5,7 @@ import com.schoolqueue.domain.ports.in.FetchParentUseCase;
 import com.schoolqueue.domain.ports.in.ListParentsUseCase;
 import com.schoolqueue.domain.ports.in.RegisterParentUseCase;
 import com.schoolqueue.domain.ports.in.UpdateParentUseCase;
+import com.schoolqueue.domain.ports.out.ParentSchoolLinkRepositoryPort;
 import com.schoolqueue.infrastructure.adapters.in.web.dto.ParentResponse;
 import com.schoolqueue.infrastructure.adapters.in.web.dto.RegisterParentRequest;
 import com.schoolqueue.infrastructure.adapters.in.web.dto.UpdateParentRequest;
@@ -32,43 +33,50 @@ public class ParentController {
   private final FetchParentUseCase fetchParentUseCase;
   private final ListParentsUseCase listParentsUseCase;
   private final UpdateParentUseCase updateParentUseCase;
+  private final ParentSchoolLinkRepositoryPort parentSchoolLinkRepositoryPort;
 
   public ParentController(
       RegisterParentUseCase registerParentUseCase,
       FetchParentUseCase fetchParentUseCase,
       ListParentsUseCase listParentsUseCase,
-      UpdateParentUseCase updateParentUseCase) {
+      UpdateParentUseCase updateParentUseCase,
+      ParentSchoolLinkRepositoryPort parentSchoolLinkRepositoryPort) {
     this.registerParentUseCase = registerParentUseCase;
     this.fetchParentUseCase = fetchParentUseCase;
     this.listParentsUseCase = listParentsUseCase;
     this.updateParentUseCase = updateParentUseCase;
+    this.parentSchoolLinkRepositoryPort = parentSchoolLinkRepositoryPort;
   }
 
   @PostMapping
-  public ResponseEntity<ParentResponse> register(@Valid @RequestBody RegisterParentRequest request) {
+  public ResponseEntity<ParentResponse> register(
+      @Valid @RequestBody RegisterParentRequest request) {
     Parent parent = registerParentUseCase.execute(ParentDtoMapper.toCommand(request));
     URI location = URI.create("/api/v1/parents/" + parent.id());
-    return ResponseEntity.created(location).body(ParentDtoMapper.toResponse(parent));
+    return ResponseEntity.created(location)
+        .body(ParentDtoMapper.toResponse(parent, parentSchoolLinkRepositoryPort));
   }
 
   @GetMapping
   public ResponseEntity<List<ParentResponse>> list() {
     List<ParentResponse> body =
-        listParentsUseCase.execute().stream().map(ParentDtoMapper::toResponse).toList();
+        listParentsUseCase.execute().stream()
+            .map(p -> ParentDtoMapper.toResponse(p, parentSchoolLinkRepositoryPort))
+            .toList();
     return ResponseEntity.ok(body);
   }
 
   @GetMapping("/{id}")
   public ResponseEntity<ParentResponse> fetch(@PathVariable UUID id) {
     Parent parent = fetchParentUseCase.execute(id);
-    return ResponseEntity.ok(ParentDtoMapper.toResponse(parent));
+    return ResponseEntity.ok(ParentDtoMapper.toResponse(parent, parentSchoolLinkRepositoryPort));
   }
 
   @PutMapping("/{id}")
   public ResponseEntity<ParentResponse> update(
       @PathVariable UUID id, @Valid @RequestBody UpdateParentRequest request) {
     Parent parent = updateParentUseCase.execute(ParentDtoMapper.toCommand(id, request));
-    return ResponseEntity.ok(ParentDtoMapper.toResponse(parent));
+    return ResponseEntity.ok(ParentDtoMapper.toResponse(parent, parentSchoolLinkRepositoryPort));
   }
 
   @DeleteMapping("/{id}")

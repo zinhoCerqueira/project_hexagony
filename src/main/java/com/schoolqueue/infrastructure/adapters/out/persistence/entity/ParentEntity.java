@@ -15,12 +15,15 @@ public class ParentEntity {
 
   private String phone;
 
+  private String email;
+
   protected ParentEntity() {}
 
-  public ParentEntity(UUID id, String name, String phone) {
+  public ParentEntity(UUID id, String name, String phone, String email) {
     this.id = id;
     this.name = name;
     this.phone = phone;
+    this.email = email;
   }
 
   public UUID getId() {
@@ -41,5 +44,13 @@ public class ParentEntity {
 
   public void setPhone(String phone) {
     this.phone = phone;
+  }
+
+  public String getEmail() {
+    return email;
+  }
+
+  public void setEmail(String email) {
+    this.email = email;
   }
 }

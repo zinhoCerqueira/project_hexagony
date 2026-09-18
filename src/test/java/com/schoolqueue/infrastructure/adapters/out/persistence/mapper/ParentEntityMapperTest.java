@@ -14,7 +14,7 @@ class ParentEntityMapperTest {
   @DisplayName("roundtrip preserves all fields")
   void shouldRoundtripPreserveFields() {
     UUID id = UUID.randomUUID();
-    Parent domain = new Parent(id, "Maria", "11999998888");
+    Parent domain = new Parent(id, "Maria", "11999998888", "maria@mail.com");
 
     ParentEntity entity = ParentEntityMapper.toEntity(domain);
     Parent back = ParentEntityMapper.toDomain(entity);
@@ -22,8 +22,10 @@ class ParentEntityMapperTest {
     assertThat(entity.getId()).isEqualTo(id);
     assertThat(entity.getName()).isEqualTo("Maria");
     assertThat(entity.getPhone()).isEqualTo("11999998888");
+    assertThat(entity.getEmail()).isEqualTo("maria@mail.com");
     assertThat(back.id()).isEqualTo(id);
     assertThat(back.name()).isEqualTo("Maria");
     assertThat(back.phone()).isEqualTo("11999998888");
+    assertThat(back.email()).isEqualTo("maria@mail.com");
   }
 }

@@ -6,6 +6,7 @@ import com.schoolqueue.domain.exception.ParentNotFoundException;
 import com.schoolqueue.domain.exception.SchoolNotFoundException;
 import com.schoolqueue.domain.exception.StudentNotFoundException;
 import java.util.List;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -48,6 +49,16 @@ public class GlobalExceptionHandler {
             new ValidationErrorResponse(
                 HttpStatus.BAD_REQUEST.value(),
                 List.of(new FieldError("state", exception.getMessage()))));
+  }
+
+  @ExceptionHandler(DataIntegrityViolationException.class)
+  public ResponseEntity<ValidationErrorResponse> handleDataIntegrityViolation(
+      DataIntegrityViolationException exception) {
+    return ResponseEntity.status(HttpStatus.CONFLICT)
+        .body(
+            new ValidationErrorResponse(
+                HttpStatus.CONFLICT.value(),
+                List.of(new FieldError("email", "E-mail já cadastrado"))));
   }
 
   @ExceptionHandler(SchoolNotFoundException.class)
