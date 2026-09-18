@@ -8,6 +8,7 @@ import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.MethodParameter;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BeanPropertyBindingResult;
@@ -19,9 +20,11 @@ class GlobalExceptionHandlerTest {
   private final GlobalExceptionHandler handler = new GlobalExceptionHandler();
 
   @Test
-  @DisplayName("InvalidQueueStateException maps to 409 Conflict with field=state and original message")
+  @DisplayName(
+      "InvalidQueueStateException maps to 409 Conflict with field=state and original message")
   void shouldMapInvalidQueueStateExceptionTo409() {
-    InvalidQueueStateException exception = new InvalidQueueStateException("Fila já finalizada ou cancelada");
+    InvalidQueueStateException exception =
+        new InvalidQueueStateException("Fila já finalizada ou cancelada");
 
     ResponseEntity<GlobalExceptionHandler.ValidationErrorResponse> response =
         handler.handleInvalidQueueState(exception);
@@ -32,12 +35,14 @@ class GlobalExceptionHandlerTest {
     assertThat(response.getBody().errors())
         .hasSize(1)
         .first()
-        .extracting(GlobalExceptionHandler.FieldError::field, GlobalExceptionHandler.FieldError::message)
+        .extracting(
+            GlobalExceptionHandler.FieldError::field, GlobalExceptionHandler.FieldError::message)
         .containsExactly("state", "Fila já finalizada ou cancelada");
   }
 
   @Test
-  @DisplayName("IllegalStateException maps to 400 Bad Request with field=state and original message")
+  @DisplayName(
+      "IllegalStateException maps to 400 Bad Request with field=state and original message")
   void shouldMapIllegalStateExceptionTo400() {
     IllegalStateException exception =
         new IllegalStateException("Já existe um aviso de saída ativo para este aluno.");
@@ -51,7 +56,8 @@ class GlobalExceptionHandlerTest {
     assertThat(response.getBody().errors())
         .hasSize(1)
         .first()
-        .extracting(GlobalExceptionHandler.FieldError::field, GlobalExceptionHandler.FieldError::message)
+        .extracting(
+            GlobalExceptionHandler.FieldError::field, GlobalExceptionHandler.FieldError::message)
         .containsExactly("state", "Já existe um aviso de saída ativo para este aluno.");
   }
 
@@ -59,7 +65,8 @@ class GlobalExceptionHandlerTest {
   @DisplayName("MethodArgumentNotValidException maps to 400 with one FieldError per invalid field")
   void shouldMapMethodArgumentNotValidTo400WithFieldErrors() throws NoSuchMethodException {
     MethodParameter parameter = methodParameterOf("announce", AnnounceArrivalRequestMarker.class);
-    BeanPropertyBindingResult bindingResult = new BeanPropertyBindingResult(new Object(), "announceRequest");
+    BeanPropertyBindingResult bindingResult =
+        new BeanPropertyBindingResult(new Object(), "announceRequest");
     bindingResult.addError(new FieldError("announceRequest", "latitude", "must not be null"));
     bindingResult.addError(new FieldError("announceRequest", "longitude", "must not be null"));
     MethodArgumentNotValidException exception =
@@ -72,10 +79,32 @@ class GlobalExceptionHandlerTest {
     assertThat(response.getBody()).isNotNull();
     assertThat(response.getBody().status()).isEqualTo(400);
     List<GlobalExceptionHandler.FieldError> errors = response.getBody().errors();
-    assertThat(errors).extracting(GlobalExceptionHandler.FieldError::field)
+    assertThat(errors)
+        .extracting(GlobalExceptionHandler.FieldError::field)
         .containsExactlyInAnyOrder("latitude", "longitude");
-    assertThat(errors).extracting(GlobalExceptionHandler.FieldError::message)
+    assertThat(errors)
+        .extracting(GlobalExceptionHandler.FieldError::message)
         .containsExactlyInAnyOrder("must not be null", "must not be null");
+  }
+
+  @Test
+  @DisplayName("DataIntegrityViolationException maps to 409 Conflict with field=email")
+  void shouldMapDataIntegrityViolationTo409() {
+    DataIntegrityViolationException exception =
+        new DataIntegrityViolationException("duplicate key value violates unique constraint");
+
+    ResponseEntity<GlobalExceptionHandler.ValidationErrorResponse> response =
+        handler.handleDataIntegrityViolation(exception);
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+    assertThat(response.getBody()).isNotNull();
+    assertThat(response.getBody().status()).isEqualTo(409);
+    assertThat(response.getBody().errors())
+        .hasSize(1)
+        .first()
+        .extracting(
+            GlobalExceptionHandler.FieldError::field, GlobalExceptionHandler.FieldError::message)
+        .containsExactly("email", "E-mail já cadastrado");
   }
 
   private static MethodParameter methodParameterOf(String methodName, Class<?> declaringClass)

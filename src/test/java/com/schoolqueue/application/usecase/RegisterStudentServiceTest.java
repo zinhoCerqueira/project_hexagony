@@ -50,9 +50,17 @@ class RegisterStudentServiceTest {
     UUID schoolId = UUID.randomUUID();
     UUID classroomId = UUID.randomUUID();
     UUID parentId = UUID.randomUUID();
-    when(schoolRepositoryPort.findById(schoolId)).thenReturn(Optional.of(new com.schoolqueue.domain.model.School(schoolId, "S", new java.math.BigDecimal("0"), new java.math.BigDecimal("0"))));
-    when(classroomRepositoryPort.findById(classroomId)).thenReturn(Optional.of(new com.schoolqueue.domain.model.Classroom(classroomId, schoolId, "A")));
-    when(parentRepositoryPort.findById(parentId)).thenReturn(Optional.of(new com.schoolqueue.domain.model.Parent(parentId, "P", "1")));
+    when(schoolRepositoryPort.findById(schoolId))
+        .thenReturn(
+            Optional.of(
+                new com.schoolqueue.domain.model.School(
+                    schoolId, "S", new java.math.BigDecimal("0"), new java.math.BigDecimal("0"))));
+    when(classroomRepositoryPort.findById(classroomId))
+        .thenReturn(
+            Optional.of(new com.schoolqueue.domain.model.Classroom(classroomId, schoolId, "A")));
+    when(parentRepositoryPort.findById(parentId))
+        .thenReturn(
+            Optional.of(new com.schoolqueue.domain.model.Parent(parentId, "P", "1", "p@mail.com")));
     when(studentRepositoryPort.save(any(Student.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -73,7 +81,11 @@ class RegisterStudentServiceTest {
     UUID schoolId = UUID.randomUUID();
     when(schoolRepositoryPort.findById(schoolId)).thenReturn(Optional.empty());
     assertThatThrownBy(
-            () -> newService().execute(new RegisterStudentCommand(schoolId, UUID.randomUUID(), "x", List.of(UUID.randomUUID()))))
+            () ->
+                newService()
+                    .execute(
+                        new RegisterStudentCommand(
+                            schoolId, UUID.randomUUID(), "x", List.of(UUID.randomUUID()))))
         .isInstanceOf(SchoolNotFoundException.class);
   }
 
@@ -82,10 +94,18 @@ class RegisterStudentServiceTest {
   void shouldThrowWhenClassroomMissing() {
     UUID schoolId = UUID.randomUUID();
     UUID classroomId = UUID.randomUUID();
-    when(schoolRepositoryPort.findById(schoolId)).thenReturn(Optional.of(new com.schoolqueue.domain.model.School(schoolId, "S", new java.math.BigDecimal("0"), new java.math.BigDecimal("0"))));
+    when(schoolRepositoryPort.findById(schoolId))
+        .thenReturn(
+            Optional.of(
+                new com.schoolqueue.domain.model.School(
+                    schoolId, "S", new java.math.BigDecimal("0"), new java.math.BigDecimal("0"))));
     when(classroomRepositoryPort.findById(classroomId)).thenReturn(Optional.empty());
     assertThatThrownBy(
-            () -> newService().execute(new RegisterStudentCommand(schoolId, classroomId, "x", List.of(UUID.randomUUID()))))
+            () ->
+                newService()
+                    .execute(
+                        new RegisterStudentCommand(
+                            schoolId, classroomId, "x", List.of(UUID.randomUUID()))))
         .isInstanceOf(ClassroomNotFoundException.class);
   }
 
@@ -95,11 +115,20 @@ class RegisterStudentServiceTest {
     UUID schoolId = UUID.randomUUID();
     UUID classroomId = UUID.randomUUID();
     UUID parentId = UUID.randomUUID();
-    when(schoolRepositoryPort.findById(schoolId)).thenReturn(Optional.of(new com.schoolqueue.domain.model.School(schoolId, "S", new java.math.BigDecimal("0"), new java.math.BigDecimal("0"))));
-    when(classroomRepositoryPort.findById(classroomId)).thenReturn(Optional.of(new com.schoolqueue.domain.model.Classroom(classroomId, schoolId, "A")));
+    when(schoolRepositoryPort.findById(schoolId))
+        .thenReturn(
+            Optional.of(
+                new com.schoolqueue.domain.model.School(
+                    schoolId, "S", new java.math.BigDecimal("0"), new java.math.BigDecimal("0"))));
+    when(classroomRepositoryPort.findById(classroomId))
+        .thenReturn(
+            Optional.of(new com.schoolqueue.domain.model.Classroom(classroomId, schoolId, "A")));
     when(parentRepositoryPort.findById(parentId)).thenReturn(Optional.empty());
     assertThatThrownBy(
-            () -> newService().execute(new RegisterStudentCommand(schoolId, classroomId, "x", List.of(parentId))))
+            () ->
+                newService()
+                    .execute(
+                        new RegisterStudentCommand(schoolId, classroomId, "x", List.of(parentId))))
         .isInstanceOf(ParentNotFoundException.class);
   }
 }

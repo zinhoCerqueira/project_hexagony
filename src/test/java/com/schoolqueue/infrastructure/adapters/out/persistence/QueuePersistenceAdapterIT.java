@@ -132,10 +132,11 @@ class QueuePersistenceAdapterIT {
 
   private void persistParent(UUID parentId) {
     entityManager
-        .createNativeQuery("INSERT INTO parents (id, name, phone) VALUES (?, ?, ?)")
+        .createNativeQuery("INSERT INTO parents (id, name, phone, email) VALUES (?, ?, ?, ?)")
         .setParameter(1, parentId)
         .setParameter(2, "Maria da Silva")
         .setParameter(3, "+55 11 99999-0000")
+        .setParameter(4, "parent-" + parentId + "@test.local")
         .executeUpdate();
   }
 

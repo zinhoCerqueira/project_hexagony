@@ -22,6 +22,7 @@ public class UpdateParentService implements UpdateParentUseCase {
             .orElseThrow(() -> new ParentNotFoundException("Responsável não encontrado"));
     parent.setName(command.name());
     parent.setPhone(command.phone());
+    parent.setEmail(command.email());
     return parentRepositoryPort.save(parent);
   }
 }

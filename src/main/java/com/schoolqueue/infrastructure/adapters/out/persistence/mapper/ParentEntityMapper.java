@@ -8,10 +8,10 @@ public final class ParentEntityMapper {
   private ParentEntityMapper() {}
 
   public static ParentEntity toEntity(Parent parent) {
-    return new ParentEntity(parent.id(), parent.name(), parent.phone());
+    return new ParentEntity(parent.id(), parent.name(), parent.phone(), parent.email());
   }
 
   public static Parent toDomain(ParentEntity entity) {
-    return new Parent(entity.getId(), entity.getName(), entity.getPhone());
+    return new Parent(entity.getId(), entity.getName(), entity.getPhone(), entity.getEmail());
   }
 }

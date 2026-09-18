@@ -28,18 +28,19 @@ class UpdateParentServiceTest {
   @DisplayName("updates an existing parent")
   void shouldUpdateParent() {
     UUID id = UUID.randomUUID();
-    Parent existing = new Parent(id, "Old", "111");
+    Parent existing = new Parent(id, "Old", "111", "old@mail.com");
     when(parentRepositoryPort.findById(id)).thenReturn(Optional.of(existing));
     when(parentRepositoryPort.save(any(Parent.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
 
-    UpdateParentCommand command = new UpdateParentCommand(id, "New", "222");
+    UpdateParentCommand command = new UpdateParentCommand(id, "New", "222", "new@mail.com");
     Parent result = new UpdateParentService(parentRepositoryPort).execute(command);
 
     ArgumentCaptor<Parent> captor = ArgumentCaptor.forClass(Parent.class);
     verify(parentRepositoryPort).save(captor.capture());
     assertThat(captor.getValue().name()).isEqualTo("New");
     assertThat(captor.getValue().phone()).isEqualTo("222");
+    assertThat(captor.getValue().email()).isEqualTo("new@mail.com");
     assertThat(result.name()).isEqualTo("New");
   }
 
@@ -52,7 +53,7 @@ class UpdateParentServiceTest {
     assertThatThrownBy(
             () ->
                 new UpdateParentService(parentRepositoryPort)
-                    .execute(new UpdateParentCommand(id, "X", "Y")))
+                    .execute(new UpdateParentCommand(id, "X", "Y", "x@mail.com")))
         .isInstanceOf(ParentNotFoundException.class);
   }
 }
