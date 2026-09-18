@@ -1,0 +1,22 @@
+meta {
+  name: Create Parent Empty Payload
+  type: http
+  seq: 6
+}
+
+post {
+  url: http://localhost:8080/api/v1/parents
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "name": "",
+    "phone": ""
+  }
+}
+
+assert {
+  res.status: eq 400
+}
