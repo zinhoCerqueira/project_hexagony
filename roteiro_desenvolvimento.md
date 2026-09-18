@@ -1596,3 +1596,33 @@ com asserts `res.status eq 200` e "lista contém o aluno anunciado". O
   não precisou de ajuste (decisão do usuário na BRUNO04).
 
 Sem mudança em código Java, DTOs, testes ou schema. #tests #bruno #rest #docs
+
+### LAC30 — `mvn spotless:check` falha em 5 arquivos pré-existentes (dívida de formatação)
+
+Ao rodar `mvn spotless:check` (gate `googleJavaFormat:1.22.0`) sobre a
+`main` em 2026-09-18, 5 arquivos que nenhuma task recente tocou já
+violavam a formatação:
+`domain/ports/in/FetchStudentUseCase.java`,
+`domain/ports/in/RegisterStudentUseCase.java`,
+`application/usecase/RegisterStudentService.java`,
+`infrastructure/adapters/in/web/dto/UpdateSchoolRequest.java` e
+`infrastructure/adapters/in/web/mapper/StudentDtoMapper.java`
+(quebras de linha em assinaturas longas). Um `mvn spotless:apply`
+durante a task de vínculo Parent↔School reformatou esses arquivos como
+efeito colateral; a reversão foi feita para manter o commit atômico, de
+modo que o `spotless:check` segue vermelho nesses 5 arquivos. A solução
+envolveria um chore dedicado (`mvn spotless:apply` + commit isolado).
+#chore #build #tech-debt
+
+### LAC31 — Sem endpoint para adicionar/remover escolas de um Parent existente
+
+Desde a task de vínculo Parent↔School (tabela N:N `parent_school`,
+migration `V2__parent_email_and_school_link.sql`), o `POST
+/api/v1/parents` cria o vínculo inicial e o `PUT /{id}` é propositalmente
+imutável quanto a `schoolId`
+(`src/main/java/com/schoolqueue/infrastructure/adapters/in/web/ParentController.java`).
+Não existe operação para vincular um parent já cadastrado a uma segunda
+escola (ex.: irmãos em escolas distintas) nem para desvincular. A solução
+envolveria algo como `POST/DELETE /api/v1/parents/{id}/schools` com
+validação de escola existente (`404 field=schoolId`) e testes
+`@WebMvcTest` + Bruno correspondentes. #backend #rest #parent #school

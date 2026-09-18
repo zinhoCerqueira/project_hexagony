@@ -249,28 +249,39 @@
 
 ### 🟩 ESC-003 — Gestão de Responsáveis (Parents) #responsavel #rest
 
-- **Resumo:** Responsáveis guardam `name` + `phone` (string livre). Rotas:
+- **Resumo:** Responsáveis guardam `name` + `phone` + `email` (obrigatório,
+  único) e nascem vinculados a uma escola via tabela N:N `parent_school`
+  (o `POST` recebe um `schoolId` e cria o vínculo inicial; `PUT` atualiza
+  `name`/`phone`/`email` mas **não** mexe no vínculo). Rotas:
   `POST`, `GET (lista)`, `GET /{id}`, `PUT /{id}`. `DELETE` ⇒ `405`.
 - **Componentes/Arquivos:**
   - Domain: `domain/model/Parent.java`, `domain/exception/ParentNotFoundException.java`.
   - Use cases: `RegisterParentService`, `FetchParentService`,
     `ListParentsService`, `UpdateParentService`.
-  - Driven port: `ParentRepositoryPort`.
+  - Driven ports: `ParentRepositoryPort`, `ParentSchoolLinkRepositoryPort`.
   - Adapter: `ParentPersistenceAdapter` + `ParentEntity` +
-    `ParentEntityMapper` + `SpringDataParentRepository`.
-  - Driving adapter: `ParentController` + DTOs + `ParentDtoMapper`.
-  - Migração: tabela `parents` na `V1`.
+    `ParentEntityMapper` + `SpringDataParentRepository` +
+    `ParentSchoolLinkPersistenceAdapter` + `ParentSchoolEntity` +
+    `SpringDataParentSchoolRepository`.
+  - Driving adapter: `ParentController` + DTOs + `ParentDtoMapper`
+    (response inclui `email` + `schoolIds` resolvidos via link port).
+  - Migração: tabela `parents` na `V1` (+ coluna `email` UNIQUE e tabela
+    `parent_school` na `V2__parent_email_and_school_link.sql`).
   - Tests: `ParentTest`, services `*ServiceTest`,
-    `ParentEntityMapperTest`, `ParentControllerWebTest`.
-  - Bruno: `bruno/Parents/{Create,Get,List,Update,Delete} Parent.bru`.
-- **Pré-condições:** Containers + app de pé (INF).
+    `ParentEntityMapperTest`, `ParentControllerWebTest`,
+    `GlobalExceptionHandlerTest` (email duplicado ⇒ `409`).
+  - Bruno: `bruno/Parents/{Create,Get,List,Update,Delete} Parent.bru`,
+    `Create Parent Empty Payload.bru`, `Get Nonexistent Parent.bru`.
+- **Pré-condições:** Containers + app de pé (INF); pelo menos uma escola
+  criada (ESC-001) para informar o `schoolId`.
 - **Passo a passo (via HTTP):**
   1. **Criar**:
      ```
      POST http://localhost:8080/api/v1/parents
-     { "name": "Maria Souza", "phone": "11999998888" }
+     { "name": "Maria Souza", "phone": "11999998888", "email": "maria.souza@mail.com", "schoolId": "<uuid-escola>" }
      ```
-     ⇒ `201 Created`, `Location: /api/v1/parents/<uuid>`.
+     ⇒ `201 Created`, `Location: /api/v1/parents/<uuid>`, body com
+     `email` e `schoolIds: ["<uuid-escola>"]`.
   2. **Listar**:
      ```
      GET http://localhost:8080/api/v1/parents
@@ -284,19 +295,29 @@
   4. **Atualizar**:
      ```
      PUT /api/v1/parents/<uuid>
-     { "name": "Maria Souza Atualizada", "phone": "11988887777" }
+     { "name": "Maria Souza Atualizada", "phone": "11988887777", "email": "maria.atualizada@mail.com" }
      ```
-     ⇒ `200`.
+     ⇒ `200` (o vínculo com a escola não muda).
   5. **Validação (negativo)**:
      ```
-     POST /api/v1/parents { "name": "", "phone": "" }
+     POST /api/v1/parents { "name": "", "phone": "", "email": "" }
      ```
      ⇒ `400`.
+  6. **Escola inexistente (negativo)**:
+     ```
+     POST /api/v1/parents { "name": "x", "phone": "y", "email": "x@mail.com", "schoolId": "<uuid-inexistente>" }
+     ```
+     ⇒ `404` (`field=schoolId`).
+  7. **E-mail duplicado (negativo)**: repetir o `POST` com o mesmo
+     `email` ⇒ `409` (`field=email`, "E-mail já cadastrado").
 - **Endpoints/inspeção na IDE:**
-  - Bruno: `bruno/Parents/Create Parent.bru` salva `parentId`.
-  - Postgres: `SELECT id, name, phone FROM parents;`.
-- **Resultado esperado:** responsável persistido; vínculos com alunos
-  ainda não expostos por endpoint dedicado (veja ESC-004).
+  - Bruno: `bruno/Parents/Create Parent.bru` usa `{{schoolId}}` (gravada
+    pelo `Create School`) e salva `parentId`.
+  - Postgres: `SELECT id, name, phone, email FROM parents;` e
+    `SELECT parent_id, school_id FROM parent_school;`.
+- **Resultado esperado:** responsável persistido com e-mail único;
+  vínculo inicial em `parent_school`; `PUT` não altera `schoolIds`;
+  vínculos com alunos ainda via `parent_student` (veja ESC-004).
 
 ### 🟩 ESC-004 — Gestão de Alunos (Students) + Vínculo Responsável #aluno #rest
 
