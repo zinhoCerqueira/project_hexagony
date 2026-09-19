@@ -144,14 +144,15 @@ public class BeanConfiguration {
 
   @Bean
   public ListStudentsBySchoolUseCase listStudentsBySchoolUseCase(
-      StudentRepositoryPort studentRepositoryPort) {
-    return new ListStudentsBySchoolService(studentRepositoryPort);
+      StudentRepositoryPort studentRepositoryPort, SchoolRepositoryPort schoolRepositoryPort) {
+    return new ListStudentsBySchoolService(studentRepositoryPort, schoolRepositoryPort);
   }
 
   @Bean
   public ListStudentsByClassroomUseCase listStudentsByClassroomUseCase(
-      StudentRepositoryPort studentRepositoryPort) {
-    return new ListStudentsByClassroomService(studentRepositoryPort);
+      StudentRepositoryPort studentRepositoryPort,
+      ClassroomRepositoryPort classroomRepositoryPort) {
+    return new ListStudentsByClassroomService(studentRepositoryPort, classroomRepositoryPort);
   }
 
   @Bean
