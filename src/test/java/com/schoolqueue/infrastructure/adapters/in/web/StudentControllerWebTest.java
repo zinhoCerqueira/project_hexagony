@@ -12,6 +12,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.schoolqueue.domain.exception.ClassroomNotFoundException;
+import com.schoolqueue.domain.exception.SchoolNotFoundException;
 import com.schoolqueue.domain.exception.StudentNotFoundException;
 import com.schoolqueue.domain.model.Student;
 import com.schoolqueue.domain.ports.in.FetchStudentUseCase;
@@ -181,6 +183,32 @@ class StudentControllerWebTest {
   }
 
   @Test
+  @DisplayName("GET /school/{schoolId} returns 404 when the school does not exist")
+  void shouldReturn404WhenListingByMissingSchool() throws Exception {
+    UUID schoolId = UUID.randomUUID();
+    when(listStudentsBySchoolUseCase.execute(schoolId))
+        .thenThrow(new SchoolNotFoundException("Escola não encontrada"));
+
+    mockMvc
+        .perform(get("/api/v1/students/school/" + schoolId))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.errors[0].field").value("schoolId"));
+  }
+
+  @Test
+  @DisplayName("GET /classroom/{classroomId} returns 404 when the classroom does not exist")
+  void shouldReturn404WhenListingByMissingClassroom() throws Exception {
+    UUID classroomId = UUID.randomUUID();
+    when(listStudentsByClassroomUseCase.execute(classroomId))
+        .thenThrow(new ClassroomNotFoundException("Turma não encontrada"));
+
+    mockMvc
+        .perform(get("/api/v1/students/classroom/" + classroomId))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.errors[0].field").value("classroomId"));
+  }
+
+  @Test
   @DisplayName("PUT /{id} returns 200 with the updated student")
   void shouldUpdateStudent() throws Exception {
     UUID id = UUID.randomUUID();
@@ -239,7 +267,8 @@ class StudentControllerWebTest {
   @Test
   @DisplayName("DELETE /{id} returns 405 (LAC20)")
   void shouldReturnMethodNotAllowedOnDelete() throws Exception {
-    mockMvc.perform(delete("/api/v1/students/" + UUID.randomUUID()))
+    mockMvc
+        .perform(delete("/api/v1/students/" + UUID.randomUUID()))
         .andExpect(status().isMethodNotAllowed());
   }
 }
