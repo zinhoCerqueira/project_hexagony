@@ -32,15 +32,25 @@ script:post-response {
 }
 
 docs {
+  Anuncia a chegada do responsável e abre o item da fila em `EN_ROUTE`.
+  Implementado pelo `PickupQueueController` usando `AnnounceArrivalUseCase`
+  (`AnnounceArrivalService` + `QueueDtoMapper`).
+
   Contrato alinhado a `AnnounceArrivalUseCase.AnnounceArrivalCommand`
   (`src/main/java/com/schoolqueue/domain/ports/in/AnnounceArrivalUseCase.java`):
   `schoolId`, `studentId`, `parentId`, `latitude`, `longitude` (BigDecimal).
-  GPS é obrigatório. O item nasce com `journeyStatus = EN_ROUTE` e o
-  `currentRange` é calculado por `ProximityRange.fromCoordinates(...)` no
-  service.
+  GPS é obrigatório (`@NotNull` em `AnnounceArrivalRequest`).
 
-  Pendente: o `PickupQueueController` (roteiro, item "Fase 5: Adaptadores
-  REST") ainda não foi implementado — este endpoint retorna 404 no estado
-  atual do código. Quando entrar, esta coleção passa a ser executável ponta
-  a ponta.
+  O `currentRange` é calculado por `ProximityRange.fromCoordinates(...)`
+  (Haversine entre o GPS do responsável e o da escola): `CLOSE` (≤ 0,5 km)
+  já nasce com `called = true`; `MEDIUM`/`FAR` nascem com `called = false`.
+  Publica `queue.arrival.announced` no exchange `school.queue.events`
+  (fila `queue.notifications`) e loga `Published arrival.announced`.
+
+  Erros:
+  - 400 quando `latitude`/`longitude` estão ausentes (bean validation) ou
+    quando já existe item ativo para o `studentId` (handler
+    `IllegalStateException`).
+  - 404 quando a escola não existe (`SchoolNotFoundException`).
+  - 409 quando o domínio rejeita o estado (`InvalidQueueStateException`).
 }
