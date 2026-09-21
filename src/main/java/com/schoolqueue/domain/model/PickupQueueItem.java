@@ -176,6 +176,10 @@ public class PickupQueueItem {
   }
 
   public void markAsCompleted() {
+    if (this.journeyStatus == QueueStatus.COMPLETED
+        || this.journeyStatus == QueueStatus.CANCELLED) {
+      throw new InvalidQueueStateException("Fila já finalizada ou cancelada");
+    }
     if (!this.called) {
       throw new InvalidQueueStateException("Aluno não pode ser entregue sem ter sido chamado");
     }

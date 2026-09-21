@@ -347,4 +347,26 @@ class PickupQueueItemTest {
         .isInstanceOf(InvalidQueueStateException.class)
         .hasMessage("Entrega concluída não pode ser cancelada");
   }
+
+  @Test
+  @DisplayName("throws InvalidQueueStateException when completing an already completed item")
+  void shouldThrowInvalidQueueStateExceptionWhenCompletingAlreadyCompleted() {
+    PickupQueueItem item = newItem(ProximityRange.CLOSE);
+    item.markAsCompleted();
+
+    assertThatThrownBy(item::markAsCompleted)
+        .isInstanceOf(InvalidQueueStateException.class)
+        .hasMessage("Fila já finalizada ou cancelada");
+  }
+
+  @Test
+  @DisplayName("throws InvalidQueueStateException when completing a cancelled item")
+  void shouldThrowInvalidQueueStateExceptionWhenCompletingCancelled() {
+    PickupQueueItem item = newItem(ProximityRange.CLOSE);
+    item.cancel();
+
+    assertThatThrownBy(item::markAsCompleted)
+        .isInstanceOf(InvalidQueueStateException.class)
+        .hasMessage("Fila já finalizada ou cancelada");
+  }
 }
