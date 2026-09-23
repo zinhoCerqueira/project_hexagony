@@ -1626,3 +1626,18 @@ escola (ex.: irmãos em escolas distintas) nem para desvincular. A solução
 envolveria algo como `POST/DELETE /api/v1/parents/{id}/schools` com
 validação de escola existente (`404 field=schoolId`) e testes
 `@WebMvcTest` + Bruno correspondentes. #backend #rest #parent #school
+
+### LAC32 — RabbitMQ publica mas ninguém consome; push realtime da portaria é opcional
+
+A fila de embarque (negócio) mora no Postgres (`EN_ROUTE + ARRIVED`
+ordenados por `createdAt`, via `FetchActiveQueueUseCase`), não no
+RabbitMQ. O Rabbit só publica fatos fire-and-forget
+(`src/main/java/com/schoolqueue/infrastructure/adapters/out/messaging/RabbitMQNotificationAdapter.java`,
+exchange `school.queue.events`, fila `queue.notifications` em
+`src/main/java/com/schoolqueue/infrastructure/config/RabbitMQConfig.java`)
+e hoje não há `@RabbitListener`/consumidor — a portaria só vê novidades
+via polling (`GET /api/v1/queue/school/{schoolId}/active`). A solução
+envolveria decidir entre (a) manter o Rabbit como event bus e adicionar
+um listener que republica em WebSocket (`/topic/queue`) para o painel
+atualizar sozinho, ou (b) simplificar para um `LogOnlyNotificationAdapter`
+atrás do `QueueNotificationPort` e subir a API sem Rabbit no MVP. #backend #messaging #websocket #arch
