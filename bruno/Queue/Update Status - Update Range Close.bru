@@ -1,0 +1,31 @@
+meta {
+  name: Update Status - Update Range Close
+  type: http
+  seq: 7
+}
+
+patch {
+  url: http://localhost:8080/api/v1/queue/{{queueItemIdFar}}/status
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "action": "UPDATE_RANGE",
+    "newRange": "CLOSE"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.currentRange: eq CLOSE
+  res.body.called: eq true
+}
+
+docs {
+  Atualiza o range do item FAR para `CLOSE`, disparando a auto-chamada
+  (`called = true`) — o gatilho dirigido por GPS do domínio.
+  Passo final do roteiro E2E (T12): executar após `Announce Arrival - FAR`.
+  `UPDATE_RANGE` sem `newRange` retorna `400`.
+}
