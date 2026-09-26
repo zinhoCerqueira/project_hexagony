@@ -23,7 +23,8 @@ public final class StudentDtoMapper {
         id, request.schoolId(), request.classroomId(), request.name(), request.parentIds());
   }
 
-  public static StudentResponse toResponse(Student student, ParentStudentLinkRepositoryPort linkPort) {
+  public static StudentResponse toResponse(
+      Student student, ParentStudentLinkRepositoryPort linkPort) {
     return new StudentResponse(
         student.id(),
         student.schoolId(),

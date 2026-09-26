@@ -47,8 +47,7 @@ public class RegisterStudentService implements RegisterStudentUseCase {
       }
     }
 
-    Student student =
-        new Student(null, command.schoolId(), command.classroomId(), command.name());
+    Student student = new Student(null, command.schoolId(), command.classroomId(), command.name());
     Student saved = studentRepositoryPort.save(student);
     parentStudentLinkRepositoryPort.replaceParentsOfStudent(saved.id(), command.parentIds());
     return saved;

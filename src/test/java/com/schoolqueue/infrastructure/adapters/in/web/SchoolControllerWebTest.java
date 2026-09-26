@@ -238,8 +238,7 @@ class SchoolControllerWebTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.name").value("Escola Renomeada"));
 
-    ArgumentCaptor<UpdateSchoolCommand> captor =
-        ArgumentCaptor.forClass(UpdateSchoolCommand.class);
+    ArgumentCaptor<UpdateSchoolCommand> captor = ArgumentCaptor.forClass(UpdateSchoolCommand.class);
     verify(updateSchoolUseCase).execute(captor.capture());
     assertThat(captor.getValue().id()).isEqualTo(UUID.fromString(SCHOOL_ID));
   }
@@ -291,6 +290,8 @@ class SchoolControllerWebTest {
   @Test
   @DisplayName("DELETE /{id} returns 405 Method Not Allowed (LAC20)")
   void shouldReturnMethodNotAllowedOnDelete() throws Exception {
-    mockMvc.perform(delete("/api/v1/schools/" + SCHOOL_ID)).andExpect(status().isMethodNotAllowed());
+    mockMvc
+        .perform(delete("/api/v1/schools/" + SCHOOL_ID))
+        .andExpect(status().isMethodNotAllowed());
   }
 }

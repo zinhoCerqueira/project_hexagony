@@ -26,7 +26,8 @@ class ListClassroomsBySchoolServiceTest {
     Classroom c2 = new Classroom(UUID.randomUUID(), schoolId, "B");
     when(classroomRepositoryPort.findBySchoolId(schoolId)).thenReturn(List.of(c1, c2));
 
-    List<Classroom> result = new ListClassroomsBySchoolService(classroomRepositoryPort).execute(schoolId);
+    List<Classroom> result =
+        new ListClassroomsBySchoolService(classroomRepositoryPort).execute(schoolId);
 
     assertThat(result).containsExactly(c1, c2);
   }

@@ -8,5 +8,6 @@ public interface RegisterStudentUseCase {
 
   Student execute(RegisterStudentCommand command);
 
-  record RegisterStudentCommand(UUID schoolId, UUID classroomId, String name, List<UUID> parentIds) {}
+  record RegisterStudentCommand(
+      UUID schoolId, UUID classroomId, String name, List<UUID> parentIds) {}
 }
