@@ -29,8 +29,7 @@ class UpdateSchoolServiceTest {
   @DisplayName("updates an existing school and saves it")
   void shouldUpdateExistingSchool() {
     UUID id = UUID.randomUUID();
-    School existing =
-        new School(id, "Old Name", new BigDecimal("-23.5"), new BigDecimal("-46.6"));
+    School existing = new School(id, "Old Name", new BigDecimal("-23.5"), new BigDecimal("-46.6"));
     when(schoolRepositoryPort.findById(id)).thenReturn(Optional.of(existing));
     when(schoolRepositoryPort.save(any(School.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));

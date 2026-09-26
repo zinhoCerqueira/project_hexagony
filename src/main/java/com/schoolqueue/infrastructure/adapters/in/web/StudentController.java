@@ -53,7 +53,8 @@ public class StudentController {
   }
 
   @PostMapping
-  public ResponseEntity<StudentResponse> register(@Valid @RequestBody RegisterStudentRequest request) {
+  public ResponseEntity<StudentResponse> register(
+      @Valid @RequestBody RegisterStudentRequest request) {
     Student student = registerStudentUseCase.execute(StudentDtoMapper.toCommand(request));
     URI location = URI.create("/api/v1/students/" + student.id());
     return ResponseEntity.created(location)

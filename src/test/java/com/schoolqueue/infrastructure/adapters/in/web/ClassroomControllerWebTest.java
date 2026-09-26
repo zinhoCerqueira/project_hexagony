@@ -2,7 +2,6 @@ package com.schoolqueue.infrastructure.adapters.in.web;
 
 import static org.hamcrest.Matchers.hasSize;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -212,9 +211,13 @@ class ClassroomControllerWebTest {
   @Test
   @DisplayName("DELETE /{id} returns 405 (LAC20)")
   void shouldReturnMethodNotAllowedOnDelete() throws Exception {
-    mockMvc.perform(delete("/api/v1/classrooms/" + UUID.randomUUID()))
+    mockMvc
+        .perform(delete("/api/v1/classrooms/" + UUID.randomUUID()))
         .andExpect(status().isMethodNotAllowed());
-    verifyNoInteractions(registerClassroomUseCase, fetchClassroomUseCase,
-        listClassroomsBySchoolUseCase, updateClassroomUseCase);
+    verifyNoInteractions(
+        registerClassroomUseCase,
+        fetchClassroomUseCase,
+        listClassroomsBySchoolUseCase,
+        updateClassroomUseCase);
   }
 }

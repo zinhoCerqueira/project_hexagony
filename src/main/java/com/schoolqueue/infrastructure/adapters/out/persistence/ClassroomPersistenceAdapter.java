@@ -37,6 +37,7 @@ public class ClassroomPersistenceAdapter implements ClassroomRepositoryPort {
 
   @Override
   public Classroom save(Classroom classroom) {
-    return ClassroomEntityMapper.toDomain(repository.save(ClassroomEntityMapper.toEntity(classroom)));
+    return ClassroomEntityMapper.toDomain(
+        repository.save(ClassroomEntityMapper.toEntity(classroom)));
   }
 }

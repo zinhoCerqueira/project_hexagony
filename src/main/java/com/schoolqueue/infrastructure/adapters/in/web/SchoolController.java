@@ -45,7 +45,8 @@ public class SchoolController {
   }
 
   @PostMapping
-  public ResponseEntity<SchoolResponse> register(@Valid @RequestBody RegisterSchoolRequest request) {
+  public ResponseEntity<SchoolResponse> register(
+      @Valid @RequestBody RegisterSchoolRequest request) {
     School school = registerSchoolUseCase.execute(SchoolDtoMapper.toCommand(request));
     URI location = URI.create("/api/v1/schools/" + school.id());
     return ResponseEntity.created(location).body(SchoolDtoMapper.toResponse(school));

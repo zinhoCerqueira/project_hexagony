@@ -38,7 +38,10 @@ class UpdateClassroomServiceTest {
         .thenReturn(
             Optional.of(
                 new com.schoolqueue.domain.model.School(
-                    newSchoolId, "X", new java.math.BigDecimal("0"), new java.math.BigDecimal("0"))));
+                    newSchoolId,
+                    "X",
+                    new java.math.BigDecimal("0"),
+                    new java.math.BigDecimal("0"))));
     when(classroomRepositoryPort.save(any(Classroom.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
 

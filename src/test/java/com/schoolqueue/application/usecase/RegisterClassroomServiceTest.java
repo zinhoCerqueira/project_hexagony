@@ -40,7 +40,8 @@ class RegisterClassroomServiceTest {
 
     RegisterClassroomCommand command = new RegisterClassroomCommand(schoolId, "Turma A");
     Classroom result =
-        new RegisterClassroomService(schoolRepositoryPort, classroomRepositoryPort).execute(command);
+        new RegisterClassroomService(schoolRepositoryPort, classroomRepositoryPort)
+            .execute(command);
 
     ArgumentCaptor<Classroom> captor = ArgumentCaptor.forClass(Classroom.class);
     verify(classroomRepositoryPort).save(captor.capture());

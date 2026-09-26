@@ -377,7 +377,8 @@ class PickupQueueControllerWebTest {
   @DisplayName("PATCH /{id}/status returns 409 when service throws InvalidQueueStateException")
   void shouldReturnConflictOnPatchWhenServiceThrowsInvalidQueueState() throws Exception {
     when(updateQueueStatusUseCase.execute(any(UpdateQueueStatusCommand.class)))
-        .thenThrow(new InvalidQueueStateException("Aluno não pode ser entregue sem ter sido chamado"));
+        .thenThrow(
+            new InvalidQueueStateException("Aluno não pode ser entregue sem ter sido chamado"));
 
     mockMvc
         .perform(
