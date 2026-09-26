@@ -77,12 +77,6 @@ kanban-plugin: board
   ✅ **Critérios de Aceite:**
   - Exchange `school.queue.events` + fila `queue.notifications` + 2 bindings; `Get messages` mostra `ArrivalAnnouncedEvent` e `StatusChangedEvent` com `__TypeId__`. #messaging #rabbitmq
   *seq-10.*
-- [ ] **[T12] [E2E] Roteiro mínimo + suíte automatizada**
-  🎯 **Objetivo:** Fechar ciclo manual e gates. Pré-req: T01→T11.
-  ✅ **Critérios de Aceite:**
-  - Manual: escola CLOSE → turma → responsável → aluno → announce CLOSE → `ARRIVED` → `COMPLETED` → active vazio → announce FAR → `UPDATE_RANGE CLOSE`.
-  - `mvn -DskipITs test` verde; `mvn verify` verde; `mvn spotless:check` verde; Bruno E2E verde. #tests #e2e #quality
-  *seq-12.*
 
 ## Em Andamento
 
@@ -96,6 +90,14 @@ kanban-plugin: board
   - Flyway `V1 success`; `uuid-ossp` presente; 6 tabelas em `public.*`. #db #flyway
   *seq-11.*
   ✔ Validada em 2026-09-25: banco vivo com V1+V2 `success`, `uuid-ossp`, 7 tabelas de domínio (`parent_school` da V2 além das 6 do card); boot com `ddl-auto: validate` sem erro; `mvn verify` verde (197 unit + 10 IT + `spotless:check`).
+
+- [x] **[T12] [E2E] Roteiro mínimo + suíte automatizada**
+  🎯 **Objetivo:** Fechar ciclo manual e gates. Pré-req: T01→T11.
+  ✅ **Critérios de Aceite:**
+  - Manual: escola CLOSE → turma → responsável → aluno → announce CLOSE → `ARRIVED` → `COMPLETED` → active vazio → announce FAR → `UPDATE_RANGE CLOSE`.
+  - `mvn -DskipITs test` verde; `mvn verify` verde; `mvn spotless:check` verde; Bruno E2E verde. #tests #e2e #quality
+  *seq-12.*
+  ✔ Validada em 2026-09-26: roteiro manual 11/11 via HTTP (201×4, announce CLOSE `EN_ROUTE/CLOSE/called`, active n=1, `ARRIVED`, `COMPLETED`, active n=0, announce FAR `EN_ROUTE/FAR/!called`, `UPDATE_RANGE CLOSE` auto-chamada; 5 msgs em `queue.notifications`); `PickupQueueFlowIT` full-stack verde; Bruno `Queue/` com 7 requests seq 1–7; `SpringDataQueueRepositoryTest` renomeado para `*IT` (`mvn test` sem Docker).
 
 %% kanban:settings
 ```

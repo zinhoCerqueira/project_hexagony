@@ -1,0 +1,40 @@
+meta {
+  name: Announce Arrival - FAR
+  type: http
+  seq: 6
+}
+
+post {
+  url: http://localhost:8080/api/v1/queue/announce
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "schoolId": "{{schoolId}}",
+    "studentId": "{{studentId}}",
+    "parentId": "{{parentId}}",
+    "latitude": 0,
+    "longitude": 0
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.journeyStatus: eq EN_ROUTE
+  res.body.currentRange: eq FAR
+  res.body.called: eq false
+}
+
+script:post-response {
+  bru.setVar("queueItemIdFar", res.body.id);
+}
+
+docs {
+  Anuncia a chegada com GPS distante (0,0 — a milhares de km da escola),
+  abrindo o item em `EN_ROUTE` com `FAR` e `called = false`.
+  Passo do roteiro E2E (T12): executar após `List Active Queue - Empty`
+  (o item anterior foi `COMPLETED`, então não há duplicidade ativa).
+  Publica `queue.arrival.announced` como o announce CLOSE.
+}

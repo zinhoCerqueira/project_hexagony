@@ -1,0 +1,29 @@
+meta {
+  name: Update Status - Arrived
+  type: http
+  seq: 3
+}
+
+patch {
+  url: http://localhost:8080/api/v1/queue/{{queueItemId}}/status
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "action": "MARK_AS_ARRIVED"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.journeyStatus: eq ARRIVED
+}
+
+docs {
+  Marca o item como `ARRIVED` (somente a partir de `EN_ROUTE`).
+  Passo do roteiro E2E (T12): executar após `Announce Arrival` e
+  `List Active Queue`, antes de `Update Status - Completed`.
+  Repetir este request deve retornar `409` (transição inválida no domínio).
+}
