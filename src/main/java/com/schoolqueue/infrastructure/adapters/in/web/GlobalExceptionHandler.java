@@ -3,6 +3,7 @@ package com.schoolqueue.infrastructure.adapters.in.web;
 import com.schoolqueue.domain.exception.ClassroomNotFoundException;
 import com.schoolqueue.domain.exception.InvalidQueueStateException;
 import com.schoolqueue.domain.exception.ParentNotFoundException;
+import com.schoolqueue.domain.exception.QueueItemNotFoundException;
 import com.schoolqueue.domain.exception.SchoolNotFoundException;
 import com.schoolqueue.domain.exception.StudentNotFoundException;
 import java.util.List;
@@ -109,5 +110,15 @@ public class GlobalExceptionHandler {
             new ValidationErrorResponse(
                 HttpStatus.NOT_FOUND.value(),
                 List.of(new FieldError("studentId", exception.getMessage()))));
+  }
+
+  @ExceptionHandler(QueueItemNotFoundException.class)
+  public ResponseEntity<ValidationErrorResponse> handleQueueItemNotFound(
+      QueueItemNotFoundException exception) {
+    return ResponseEntity.status(HttpStatus.NOT_FOUND)
+        .body(
+            new ValidationErrorResponse(
+                HttpStatus.NOT_FOUND.value(),
+                List.of(new FieldError("queueItemId", exception.getMessage()))));
   }
 }

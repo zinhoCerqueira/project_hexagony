@@ -14,6 +14,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.schoolqueue.domain.exception.InvalidQueueStateException;
+import com.schoolqueue.domain.exception.QueueItemNotFoundException;
 import com.schoolqueue.domain.model.PickupQueueItem;
 import com.schoolqueue.domain.model.ProximityRange;
 import com.schoolqueue.domain.model.QueueStatus;
@@ -403,5 +404,21 @@ class PickupQueueControllerWebTest {
         .andExpect(status().isBadRequest());
 
     verify(updateQueueStatusUseCase, never()).execute(any(UpdateQueueStatusCommand.class));
+  }
+
+  @Test
+  @DisplayName("PATCH /{id}/status returns 404 when the queue item does not exist")
+  void shouldReturnNotFoundOnPatchWhenQueueItemDoesNotExist() throws Exception {
+    when(updateQueueStatusUseCase.execute(any(UpdateQueueStatusCommand.class)))
+        .thenThrow(new QueueItemNotFoundException("Item da fila não encontrado"));
+
+    mockMvc
+        .perform(
+            patch("/api/v1/queue/{id}/status", QUEUE_ITEM_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"action\": \"MARK_AS_COMPLETED\"}"))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.errors[0].field").value("queueItemId"))
+        .andExpect(jsonPath("$.errors[0].message").value("Item da fila não encontrado"));
   }
 }

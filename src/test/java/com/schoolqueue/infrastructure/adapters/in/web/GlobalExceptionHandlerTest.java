@@ -3,6 +3,7 @@ package com.schoolqueue.infrastructure.adapters.in.web;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.schoolqueue.domain.exception.InvalidQueueStateException;
+import com.schoolqueue.domain.exception.QueueItemNotFoundException;
 import java.lang.reflect.Method;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -105,6 +106,27 @@ class GlobalExceptionHandlerTest {
         .extracting(
             GlobalExceptionHandler.FieldError::field, GlobalExceptionHandler.FieldError::message)
         .containsExactly("email", "E-mail já cadastrado");
+  }
+
+  @Test
+  @DisplayName(
+      "QueueItemNotFoundException maps to 404 Not Found with field=queueItemId and original message")
+  void shouldMapQueueItemNotFoundExceptionTo404() {
+    QueueItemNotFoundException exception =
+        new QueueItemNotFoundException("Item da fila não encontrado");
+
+    ResponseEntity<GlobalExceptionHandler.ValidationErrorResponse> response =
+        handler.handleQueueItemNotFound(exception);
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    assertThat(response.getBody()).isNotNull();
+    assertThat(response.getBody().status()).isEqualTo(404);
+    assertThat(response.getBody().errors())
+        .hasSize(1)
+        .first()
+        .extracting(
+            GlobalExceptionHandler.FieldError::field, GlobalExceptionHandler.FieldError::message)
+        .containsExactly("queueItemId", "Item da fila não encontrado");
   }
 
   private static MethodParameter methodParameterOf(String methodName, Class<?> declaringClass)
