@@ -15,10 +15,10 @@ public class SchoolEntity {
 
   private String name;
 
-  @Column(precision = 9, scale = 6)
+  @Column(nullable = false, precision = 9, scale = 6)
   private BigDecimal latitude;
 
-  @Column(precision = 9, scale = 6)
+  @Column(nullable = false, precision = 9, scale = 6)
   private BigDecimal longitude;
 
   protected SchoolEntity() {}
