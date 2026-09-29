@@ -1032,121 +1032,6 @@ Siga a ordem sequencial abaixo para construir o projeto do zero:
 > sem aprovação explícita; podem virar tasks do roteiro ou permanecer como
 > referência. O agente avisa periodicamente sobre os pendentes.
 
-### LAC01 — Convenções de prefixo de commit divergem entre AGENTS.md, roteiro e histórico
-
-`AGENTS.md` documenta apenas o prefixo `[Task NNN]`, mas o histórico já usa
-`[GPS00]`, `[GPS01]`, `[FILA01]`, `[API03]`, etc., e a nova seção do AGENTS.md
-passa a tratar `APIxx` e `FILAxx` como prefixos de primeira classe. #docs #arch
-
-### LAC02 — `AGENTS.md` ainda não referencia prefixos `[APIxx]`, `[FILAxx]`, `[GPSxx]`
-
-A seção "Convenção de commits" do AGENTS.md segue com apenas o exemplo
-`[Task NNN]`, então um agente novo lendo só esse arquivo não saberia prefixar
-commits das fases que já rodam (Fase 4/5/7). Solução: alinhar a seção com o
-histórico real e com a nova regra do backlog. #docs
-
-### LAC03 — `School` valida GPS só no construtor, `SchoolEntity` aceita colunas nulas
-
-A entidade de domínio `School` lança `IllegalArgumentException` sem GPS, mas a
-`SchoolEntity` JPA (`SchoolEntity.java:18-23`) tem apenas `@Column(precision,
-scale)`, sem `nullable = false`. Um `setLatitude(null)` no domínio já é
-bloqueado, mas a coluna no banco permitiria `null` se algo bypassasse o
-domínio (ex.: seed SQL, outro adapter). Alinhar com `nullable = false` (ou
-comentar a decisão de manter domínio como única guarda). #db #arch
-
-### LAC04 — `RegisterSchoolService` não detecta escola duplicada por nome
-
-`SchoolRepositoryPort` expõe só `findById` e `save`. Dois POSTs com o mesmo
-`name` criam duas escolas distintas. O domínio não trata isso explicitamente;
-depende de política de produto. Se for regra de negócio, adicionar
-`findByName` ao port, validar no service e retornar 409 via
-`GlobalExceptionHandler` (que hoje só trata `MethodArgumentNotValidException`).
-#backend #rest #arch
-
-### LAC05 — `RegisterSchoolServiceTest` cobre só o caso feliz
-
-Há 1 teste no service contra 5 cenários no controller. Falta cobrir:
-service recebendo latitude ou longitude nula (deve propagar
-`IllegalArgumentException` vinda de `School`). #test
-
-### LAC06 — Sem verificação de cadastros repetidos em nenhuma unidade
-
-Reproduzido: `schools` tem 11 linhas com apenas 2 nomes distintos e 1 par
-lat/lng (confirmado em `pg_stat_user_tables` via `psql`). Nenhuma das
-unidades (`schools`, `students`, `parents`, `classrooms`) tem unicidade
-garantida — nem em banco (`UNIQUE` constraint), nem em service
-(checagem no use case + 409 no `GlobalExceptionHandler`). O LAC04 já
-cobre `schools` por `name`; este card é mais amplo: revisar todas as
-unidades e decidir, para cada uma, qual é a chave natural única (nome,
-documento, par lat/lng, etc.) e onde aplicá-la (constraint no schema
-Flyway + validação no domínio). Inclui o `DataIntegrityViolationException`
-no handler para 409 quando a constraint pegar. #backend #db #arch
-
-### LAC07 — Revisar durabilidade/TTL/DLQ de `queue.notifications` em produção
-
-Decisão adotada na `MSG00` (`src/main/java/com/schoolqueue/infrastructure/config/RabbitMQConfig.java`):
-exchange `school.queue.events` (topic, durable=true) e fila `queue.notifications`
-(durable=true, **sem** `x-message-ttl`, **sem** DLQ, **sem** quorum queue).
-Bindings: `queue.arrival.announced` e `queue.status.changed`. Adequado para
-dev/local, mas em produção vale revisar: TTL para evitar backlog infinito de
-eventos não consumidos; DLQ + política de retry para mensagens
-poison/descartadas; quorum queue (vs. classic) para HA; `max-length`/`overflow`
-para capar a fila; consumer-side `prefetch`, `ack` manual e idempotência.
-Definir quem é o consumer (escola, portaria, app do responsável?) e qual a
-janela aceitável de perda zero vs. at-least-once. #messaging #arch #backend
-
-### LAC08 — ✅ Resolvido na MSG02 — Implementar `notifyStatusChanged` no `RabbitMQNotificationAdapter`
-
-A `MSG01` (`src/main/java/com/schoolqueue/infrastructure/adapters/out/messaging/RabbitMQNotificationAdapter.java`)
-cobria apenas `notifyStudentArrivalAnnounced`. O segundo método do
-`QueueNotificationPort` — invocado por `UpdateQueueStatusService:42` em todo
-update de estado da fila — lançava `UnsupportedOperationException("... see LAC08")`.
-
-**Resolução (MSG02):**
-- DTO `StatusChangedEvent(queueItemId, studentId, schoolId, previousStatus, newStatus, called, currentRange, occurredAt)` em
-  `src/main/java/com/schoolqueue/infrastructure/adapters/out/messaging/dto/StatusChangedEvent.java`.
-- Adapter reusa a routing key `queue.status.changed` já declarada na `RabbitMQConfig` (MSG00).
-- `RabbitMQNotificationAdapterTest` cobre publicação correta e propagação de `AmqpException` para `notifyStatusChanged`.
-- LAC08 permanece no backlog como referência/histórico (decisão do usuário).
-
-### LAC09 — Implementar `PickupQueueController` (Fase 5 do roteiro)
-
-O `SchoolController` (`src/main/java/com/schoolqueue/infrastructure/adapters/in/web/SchoolController.java`)
-é o único controller da aplicação. As três coleções Bruno já alinhadas com o
-domínio — `Queue/Announce Arrival.bru` (anunciar chegada, payload agora
-alinhado ao `AnnounceArrivalCommand`), `Queue/List Active Queue.bru`
-(`FetchActiveQueueUseCase.execute(schoolId)`) e `Queue/Update Status` (a
-criar) — retornam 404 no estado atual porque o `PickupQueueController` ainda
-não existe. Pendente:
-
-- `POST /api/v1/queue/announce` → `AnnounceArrivalUseCase`
-- `GET /api/v1/queue/active?schoolId=...` → `FetchActiveQueueUseCase`
-- `PATCH /api/v1/queue/{queueItemId}/status` (ou similar) → `UpdateQueueStatusUseCase`
-  com `QueueAction` (sealed: `UpdateRange`/`MarkAsArrived`/`MarkAsCompleted`/`Cancel`)
-
-Decidir também: DTOs de request/response (`AnnounceArrivalRequest`,
-`QueueItemResponse`, `UpdateStatusRequest`), `QueueDtoMapper`, e
-`@WebMvcTest` cobrindo os caminhos feliz + 400 (payload inválido) + 404
-(item não encontrado) + 409 (transição inválida → `InvalidQueueStateException`).
-Os `*ServiceTest` já cobrem a lógica; o controller precisa ser exercitado
-via MockMvc com `GlobalExceptionHandler` real. #rest #arch #backend
-
-### LAC10 — Card [35] cancelado: DTOs sem `etaMinutes` (substituído por `currentRange`)
-
-O card antigo [35] (provavelmente do roteiro "Pai informa ETA em minutos" do
-modelo pré-GPS) **foi cancelado**. O modelo da fila é dirigido por GPS
-(`ProximityRange` calculado via Haversine entre o GPS do responsável e o da
-escola), então o `etaMinutes` saiu:
-- do `AnnounceArrivalCommand` (`domain/ports/in/AnnounceArrivalUseCase.java:11-12` carrega só `latitude`/`longitude`).
-- da tabela `pickup_queue` (sem coluna `eta`/`eta_minutes` na V1 do Flyway).
-- do contrato HTTP de entrada (`AnnounceArrivalRequest`) e de saída (`QueueItemResponse`), conforme `API00`.
-
-A `API00` implementa o substituto: os DTOs da fila usam `currentRange`
-(FAR/MEDIUM/CLOSE) e `latitude`/`longitude` do responsável. O card [35] em
-si não existe mais nem no roteiro nem no histórico de commits, então a
-substituição fica registrada via este card no backlog + mensagem do commit
-da `API00`. #arch #backend
-
 ### LAC11 — API01 já entregue como parte da API00 (`QueueDtoMapper.toResponse`)
 
 O card [36] do roteiro antigo (criar `QueueDtoMapper.toResponse`) **já foi
@@ -1641,3 +1526,42 @@ envolveria decidir entre (a) manter o Rabbit como event bus e adicionar
 um listener que republica em WebSocket (`/topic/queue`) para o painel
 atualizar sozinho, ou (b) simplificar para um `LogOnlyNotificationAdapter`
 atrás do `QueueNotificationPort` e subir a API sem Rabbit no MVP. #backend #messaging #websocket #arch
+
+---
+
+## 📝 Avaliações
+
+> Espaço para avaliações de dívidas técnicas e decisões de produto escritas
+> em linguagem natural, sem o detalhamento técnico dos cards LAC. Cada item
+> descreve o problema e o impacto; o detalhamento em task (arquivos, classes,
+> testes) acontece depois, quando o item for priorizado.
+
+### 01 — Cadastros duplicados: falta definir o que torna cada entidade única
+
+Hoje o sistema aceita cadastrar a mesma escola, turma, aluno ou responsável
+várias vezes sem reclamar — dois cadastros com o mesmo nome viram dois
+registros diferentes no banco. Isso já aconteceu na prática, com a base
+acumulando linhas repetidas que poluem consultas e relatórios. A única
+proteção existente é o e-mail do responsável, que não pode se repetir; todo
+o resto está sem trava, tanto na aplicação quanto no banco.
+
+Antes de codificar, é preciso decidir, para cada tipo de cadastro, o que de
+fato o torna único: o nome? um documento? a localização? Cada caso pode ter
+uma resposta diferente, e travar no lugar errado (por exemplo, barrar duas
+escolas homônimas legítimas) seria pior que o problema atual. Só depois
+dessa definição vale implementar as travas e os testes correspondentes.
+
+### 02 — Mensageria pronta para desenvolvimento, pendente de decisão para produção
+
+Os eventos da fila (anúncio de chegada e mudanças de estado) são publicados
+de forma confiável para o ambiente local: nada se perde se a aplicação
+reiniciar. Porém a configuração atual não prevê cenários de produção —
+mensagens acumuladas sem ninguém para consumir, mensagens com defeito que
+travam o processamento, ou a queda de um servidor. Também falta definir quem
+vai consumir esses eventos na ponta final e com que garantia (não perder nada
+versus processar ao menos uma vez), além de como a portaria será avisada em
+tempo real.
+
+Nada disso impede o desenvolvimento e os testes atuais. Quando houver um
+consumidor de verdade (painel da portaria, aplicativo do responsável), será
+a hora de endurecer a configuração e documentar a política de retentativas.
