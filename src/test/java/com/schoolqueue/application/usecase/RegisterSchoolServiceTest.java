@@ -1,8 +1,10 @@
 package com.schoolqueue.application.usecase;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.schoolqueue.domain.model.School;
@@ -43,5 +45,29 @@ class RegisterSchoolServiceTest {
     assertThat(result.name()).isEqualTo("Escola Municipal");
     assertThat(result.latitude()).isEqualByComparingTo(new BigDecimal("-23.550520"));
     assertThat(result.longitude()).isEqualByComparingTo(new BigDecimal("-46.633308"));
+  }
+
+  @Test
+  @DisplayName("propagates IllegalArgumentException when latitude is null")
+  void shouldPropagateWhenLatitudeIsNull() {
+    RegisterSchoolCommand command =
+        new RegisterSchoolCommand("Escola Municipal", null, new BigDecimal("-46.633308"));
+
+    assertThatThrownBy(() -> new RegisterSchoolService(schoolRepositoryPort).execute(command))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("School must have GPS coordinates");
+    verifyNoInteractions(schoolRepositoryPort);
+  }
+
+  @Test
+  @DisplayName("propagates IllegalArgumentException when longitude is null")
+  void shouldPropagateWhenLongitudeIsNull() {
+    RegisterSchoolCommand command =
+        new RegisterSchoolCommand("Escola Municipal", new BigDecimal("-23.550520"), null);
+
+    assertThatThrownBy(() -> new RegisterSchoolService(schoolRepositoryPort).execute(command))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("School must have GPS coordinates");
+    verifyNoInteractions(schoolRepositoryPort);
   }
 }

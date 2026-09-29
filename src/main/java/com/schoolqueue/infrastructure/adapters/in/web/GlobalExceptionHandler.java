@@ -51,6 +51,16 @@ public class GlobalExceptionHandler {
                 List.of(new FieldError("state", exception.getMessage()))));
   }
 
+  @ExceptionHandler(IllegalArgumentException.class)
+  public ResponseEntity<ValidationErrorResponse> handleIllegalArgument(
+      IllegalArgumentException exception) {
+    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+        .body(
+            new ValidationErrorResponse(
+                HttpStatus.BAD_REQUEST.value(),
+                List.of(new FieldError("state", exception.getMessage()))));
+  }
+
   @ExceptionHandler(DataIntegrityViolationException.class)
   public ResponseEntity<ValidationErrorResponse> handleDataIntegrityViolation(
       DataIntegrityViolationException exception) {
